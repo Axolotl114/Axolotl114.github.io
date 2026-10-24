@@ -1418,7 +1418,7 @@ $effect(() => {
 			</div>
 			<div class="space-y-2">
 				{#each glassSliderItems as item (item.key)}
-				<div class="rounded-md bg-(--btn-regular-bg) p-2">
+				<div class="glass-well rounded-md bg-(--btn-regular-bg) p-2">
 					<div class="flex items-center justify-between mb-1">
 						<label for={`axo-glass-${item.key}`} class="settings-label">{item.label}</label>
 						<span class="settings-value">{item.displayValue}</span>
@@ -1544,7 +1544,7 @@ $effect(() => {
 			</div>
 			{/if}
 
-			<div class="rounded-md bg-(--btn-regular-bg) p-2 mb-2 space-y-1.5">
+			<div class="glass-well rounded-md bg-(--btn-regular-bg) p-2 mb-2 space-y-1.5">
 				<label for="axo-bg-url" class="settings-label block">{axoLabel("bgCustomUrl")}</label>
 				<input
 					id="axo-bg-url"
@@ -1590,7 +1590,7 @@ $effect(() => {
 
 			<div class="space-y-2">
 				{#each bgSliderItems as item (item.id)}
-				<div class="rounded-md bg-(--btn-regular-bg) p-2">
+				<div class="glass-well rounded-md bg-(--btn-regular-bg) p-2">
 					<div class="flex items-center justify-between mb-1">
 						<label for={item.id} class="settings-label">{item.label}</label>
 						<span class="settings-value">{item.displayValue}</span>
@@ -1719,7 +1719,7 @@ $effect(() => {
 			<div class="space-y-2">
 				{#each overlaySliderItems as item (item.key)}
 					{#if item.enabled}
-						<div class="rounded-md bg-(--btn-regular-bg) p-2">
+						<div class="glass-well rounded-md bg-(--btn-regular-bg) p-2">
 							<div class="flex items-center justify-between mb-1">
 								<span class="text-xs font-medium text-(--btn-content) opacity-80">{item.label}</span>
 								<span class="text-xs text-(--btn-content)">{item.displayValue}</span>
