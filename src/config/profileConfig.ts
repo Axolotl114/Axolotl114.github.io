@@ -5,7 +5,7 @@ export const profileConfig: ProfileConfig = {
 	avatar: "/assets/images/avatar-axo.webp",
 
 	// 名字
-	name: "Axo",
+	name: "Axolotl_114",
 
 	// 个人签名
 	bio: "在被子与晨光之间，记录一点动画、游戏和前端。",

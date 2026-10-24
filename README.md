@@ -1,10 +1,10 @@
-# Axo · axolotl114.github.io
+# Axolotl_114's Blog · axolotl114.github.io
 
-> 一个「青のまどろみ」主题的纯静态个人博客：Astro 构建，发布到 GitHub Pages 用户站点，无 Node 常驻、无数据库、无独立后端。
+> 一个「浅蓝晨光 + 液态玻璃」的纯静态个人博客：Astro 构建，发布到 GitHub Pages 用户站点，无 Node 常驻、无数据库、无独立后端。
 
 - **站点**：<https://axolotl114.github.io/>
 - **托管**：GitHub Pages 用户站点仓库 `Axolotl114/Axolotl114.github.io`（`gh-pages` 分支，免费、自带 CDN 与 HTTPS）
-- **产物**：`dist/`（`output: "static"`），体积/页面数以**最新构建**为准（构建末尾自动跑 `pnpm size`，预算 ≤ 50MB）
+- **产物**：`dist/`（`output: "static"`），最新构建 **8.90 MB / 219 files / 23 HTML**（内容清空后；预算 ≤ 50MB）
 - **仓库结构**：**`main` = 源码**（Astro 工程）／**`gh-pages` = 构建产物**（`dist/` 内容 + `.nojekyll`）
 - **写作**：站点自带 `/admin/` 写作后台（GitHub PAT 登录 → 提交 `main` → Actions 自动构建发布）
 - **基座**：Firefly 6.16.8（Astro 7 + Svelte 5 + Tailwind CSS v4）
@@ -116,7 +116,15 @@ pnpm check      # astro check
 - 自动发布工作流：`.github/workflows/pages.yml`（已启用；`build.yml`/`biome.yml` 只做 CI 检查）。
 - 备用手动发布：`deploy/pages-deploy.ps1`（本地构建后推 `gh-pages`，token 从 `$env:GITHUB_TOKEN` 读取）。
 - 内容撰写：站内 `/admin/` 后台（PAT 登录，提交到 `main`，不直接碰 `gh-pages`）。
-- 宝塔文件管理器 / SFTP / rclone 手动上传流程（DEPLOY.md §1～§10）作为**备用方案**保留；Vercel / Cloudflare 配置保留但不使用。
+- 宝塔文件管理器 / SFTP / rclone 手动上传流程（DEPLOY.md §1–§10）作为**备用方案**保留；Vercel / Cloudflare 配置保留但不使用。
+
+## 仓库瘦身记录（2026-10）
+
+- 模板演示内容已全部清空：`src/content/{posts,dynamic,projects}`（文章/动态/项目）、`src/data/friends/*.json`、`src/data/sponsors/*.json`、`src/config/galleryConfig.ts` 演示相册；站点从空内容开始。
+- `public/pio/`（Live2D/Spine 看板娘素材）**整目录删除 14.62MB**（配置本就 `enable: false`；`scripts/prune-pio-assets.ts` 无需修改，产物无 `dist/pio/` 时自动 no-op）。
+- 未引用素材删除约 0.18MB：`public/assets/images/{avatar.webp,firefly.png}`、`public/assets/images/sponsor/*.png`、`public/assets/images/ad/ad1.webp`。
+- 打赏 / 书签导航配置移除模板作者链接与收款码（`sponsorConfig.ts`、`booknavConfig.ts`）；`public/` 由约 17.8MB 降至约 1.69MB。
+- 构建产物体积 / 页面数**以最新一次 `pnpm build` 末尾 `pnpm size` 输出为准**（详见 [ASSETS-GUIDE.md](./ASSETS-GUIDE.md)）。
 
 ## 许可与署名
 

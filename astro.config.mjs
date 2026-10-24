@@ -243,6 +243,10 @@ export default defineConfig({
 				// 根据页面开关配置过滤sitemap
 				const url = new URL(page);
 				const pathname = url.pathname;
+				// 写作后台不进入 sitemap（页面本身 noindex，且需要登录）
+				if (pathname === "/admin/" || pathname.startsWith("/admin/")) {
+					return false;
+				}
 				if (pathname === "/dynamic/" && !siteConfig.pages.dynamic) {
 					return false;
 				}

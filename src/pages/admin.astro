@@ -484,8 +484,9 @@ import Layout from "@/layouts/Layout.astro";
 			els.list.appendChild(fragment);
 		}
 
-		async function loadList(): Promise<void> {
-			showMessage("正在读取文章列表…");
+		async function loadList(options: { silent?: boolean } = {}): Promise<void> {
+			const silent = options.silent === true;
+			if (!silent) showMessage("正在读取文章列表…");
 			els.refresh.disabled = true;
 			try {
 				const { response, data } = await github(
@@ -513,7 +514,7 @@ import Layout from "@/layouts/Layout.astro";
 					}))
 					.sort((a, b) => a.name.localeCompare(b.name));
 				renderList(files);
-				showMessage(`已载入 ${files.length} 篇文章`, "ok");
+				if (!silent) showMessage(`已载入 ${files.length} 篇文章`, "ok");
 			} catch (error) {
 				showMessage(
 					error instanceof Error ? error.message : "读取列表失败",
@@ -811,12 +812,13 @@ import Layout from "@/layouts/Layout.astro";
 				state.sha = payload.content?.sha ?? sha;
 				state.editingPath = payload.content?.path ?? path;
 				els.editorState.textContent = `已发布：${slug}.md`;
+				showEditorError("");
+				// 静默刷新列表，避免「已载入 N 篇文章」覆盖发布成功提示
+				await loadList({ silent: true });
 				showMessage(
 					"已提交到 main：GitHub Actions 正在构建，约 2–5 分钟上线。",
 					"ok",
 				);
-				showEditorError("");
-				loadList();
 			} catch (error) {
 				showEditorError(
 					error instanceof Error ? error.message : "发布失败，请重试。",

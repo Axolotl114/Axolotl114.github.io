@@ -19,9 +19,16 @@
 		var raf = 0;
 		var pending = null;
 
-		function glassOf(node) {
+		// 指针镜面高光只作用于面积较小、有 specular 底图的表面；
+		// 涟漪还额外覆盖浮动面板（面板本身不做逐帧高光，避免大面积重绘）。
+		var GLOW_SELECTOR =
+			".glass-surface, #display-setting .btn-regular, #display-setting .btn-plain, #display-setting .glass-well";
+		var RIPPLE_SELECTOR =
+			".glass-surface, .float-panel, #display-setting .btn-regular, #display-setting .btn-plain, #display-setting .glass-well";
+
+		function bySelector(node, selector) {
 			if (!node || node.nodeType !== 1) return null;
-			return node.closest ? node.closest(".glass-surface") : null;
+			return node.closest ? node.closest(selector) : null;
 		}
 
 		function writePending() {
@@ -45,7 +52,7 @@
 			"pointermove",
 			function (event) {
 				if (reduce.matches || coarse.matches) return;
-				var el = glassOf(event.target);
+				var el = bySelector(event.target, GLOW_SELECTOR);
 				if (el !== lastHover) {
 					clearHover(lastHover);
 					lastHover = el;
@@ -80,7 +87,7 @@
 			"pointerdown",
 			function (event) {
 				if (reduce.matches) return;
-				var el = glassOf(event.target);
+				var el = bySelector(event.target, RIPPLE_SELECTOR);
 				if (!el) return;
 				var rect = el.getBoundingClientRect();
 				if (!rect.width || !rect.height) return;

@@ -46,17 +46,17 @@ const pages = resolvePageToggles({
 
 export const siteConfig: SiteConfig = {
 	// 站点标题
-	title: "Axo",
+	title: "Axolotl_114's Blog",
 
 	// 站点副标题
-	subtitle: "Aozora no madomi",
+	subtitle: "动画 · 游戏 · 前端",
 
 	// 站点 URL（部署域名，静态站点 canonical / sitemap / RSS 均基于此）
 	site_url: "https://axolotl114.github.io/",
 
 	// 站点描述
 	description:
-		"Axolotl 的个人小站：记录动画、游戏与日常的碎片，也收藏一些关于前端与设计的折腾笔记。整个站点构建为纯静态文件，免费托管在 GitHub Pages 上。",
+		"Axolotl_114 的个人小站：记录动画、游戏与日常的碎片，也收藏一些关于前端与设计的折腾笔记。整个站点构建为纯静态文件，免费托管在 GitHub Pages 上。",
 
 	// 站点关键词
 	keywords: [
@@ -120,10 +120,10 @@ export const siteConfig: SiteConfig = {
 		logo: {
 			type: "image",
 			value: "/assets/images/avatar-axo.webp",
-			alt: "Axo",
+			alt: "Axolotl_114",
 		},
 		// 导航栏标题
-		title: "Axo",
+		title: "Axolotl_114",
 		// 全宽导航栏，导航栏是否占满屏幕宽度，true：占满，false：不占满
 		widthFull: false,
 		// 导航菜单对齐方式，left：左对齐，center：居中

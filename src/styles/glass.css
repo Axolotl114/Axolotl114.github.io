@@ -39,37 +39,38 @@
 	--glass-fill: var(--glass-fill-light);
 
 	/* 表面材质（fill 很透明，让背景细节透出来） */
-	--glass-fill-light: rgb(255 255 255 / 0.14);
-	--glass-fill-dark: rgb(12 24 32 / 0.26);
-	/* 面板底色：设置面板/下拉需要有足够实度保证正文可读 */
-	--glass-bg-light: rgb(250 250 247 / 0.6);
-	--glass-bg-dark: rgb(16 26 34 / 0.66);
+	--glass-fill-light: rgb(255 255 255 / 0.06);
+	--glass-fill-dark: rgb(12 24 32 / 0.16);
+	/* 面板底色：设置面板/下拉需要有足够实度保证正文可读（壁纸再花也不影响小字） */
+	--glass-bg-light: rgb(250 250 247 / 0.64);
+	--glass-bg-dark: rgb(16 26 34 / 0.7);
 	--glass-bg: var(--glass-bg-light);
 
-	--glass-brightness-light: 1.16;
-	--glass-brightness-dark: 1.22;
-	--glass-contrast: 1.05;
+	/* 亮度不要太高，否则背景细节被洗白；提高对比/饱和让「折射」感更明显 */
+	--glass-brightness-light: 1.06;
+	--glass-brightness-dark: 1.1;
+	--glass-contrast: 1.12;
 
 	--glass-border: rgb(255 255 255 / var(--glass-border-alpha));
-	--glass-rim: rgb(255 255 255 / 0.9);
+	--glass-rim: rgb(255 255 255 / 0.95);
 	--glass-rim-soft: rgb(255 255 255 / 0.35);
-	--glass-cold-edge: rgb(120 200 255 / calc(0.85 * var(--glass-chromatic, 1)));
-	--glass-warm-edge: rgb(255 170 200 / calc(0.7 * var(--glass-chromatic, 1)));
+	--glass-cold-edge: rgb(120 200 255 / calc(0.95 * var(--glass-chromatic, 1)));
+	--glass-warm-edge: rgb(255 170 200 / calc(0.8 * var(--glass-chromatic, 1)));
 
 	--glass-shadow:
 		0 12px 32px rgb(21 55 76 / 0.2), 0 2px 6px rgb(21 55 76 / 0.12);
 	--glass-sheen: linear-gradient(
 		155deg,
-		rgb(255 255 255 / 0.38) 0%,
-		rgb(255 255 255 / 0.05) 32%,
-		rgb(255 255 255 / 0.09) 68%,
-		rgb(255 255 255 / 0.26) 100%
+		rgb(255 255 255 / 0.18) 0%,
+		rgb(255 255 255 / 0.02) 30%,
+		rgb(255 255 255 / 0.04) 68%,
+		rgb(255 255 255 / 0.12) 100%
 	);
 	/* 指针高光：JS 未启用时固定在顶部中央，静态观感也成立 */
 	--glass-specular: radial-gradient(
 		170px circle at var(--glass-pointer-x, 50%) var(--glass-pointer-y, 0%),
-		rgb(255 255 255 / 0.55) 0%,
-		rgb(255 255 255 / 0.16) 38%,
+		rgb(255 255 255 / 0.42) 0%,
+		rgb(255 255 255 / 0.12) 38%,
 		transparent 72%
 	);
 	--glass-tint: rgb(143 199 232 / 0.14);
@@ -123,8 +124,8 @@
 		inset 0 1px 1px var(--glass-rim),
 		inset 0 -1px 1px var(--glass-rim-soft),
 		/* 色差：左右冷暖边，贴合圆角几何 */
-		inset 3px 0 8px -4px var(--glass-cold-edge),
-		inset -3px 0 8px -4px var(--glass-warm-edge),
+		inset 4px 0 10px -5px var(--glass-cold-edge),
+		inset -4px 0 10px -5px var(--glass-warm-edge),
 		/* 顶部柔光与底部暗边，制造厚度 */
 		inset 0 12px 20px -16px var(--glass-rim),
 		inset 0 -14px 24px -18px rgb(21 55 76 / 0.6),
@@ -337,14 +338,14 @@
 	border-radius: var(--glass-radius, 0.9rem);
 }
 
-/* 设置面板内的按钮：薄液层，文字与滑块保持高对比 */
+/* 设置面板内的按钮：薄液层，文字与滑块保持高对比；背景图带指针镜面高光 */
 #display-setting .btn-regular,
 #display-setting .btn-plain {
 	position: relative;
 	overflow: hidden;
 	border: 1px solid color-mix(in srgb, var(--glass-border) 62%, transparent);
 	background-color: var(--glass-fill);
-	background-image: var(--glass-sheen);
+	background-image: var(--glass-specular), var(--glass-sheen);
 	box-shadow:
 		inset 0 1px 0 var(--glass-rim-soft),
 		inset 2px 0 5px -3px var(--glass-cold-edge),
@@ -370,7 +371,7 @@
 	border-radius: calc(var(--glass-radius) * 0.6);
 	border: 1px solid color-mix(in srgb, var(--glass-border) 55%, transparent);
 	background-color: color-mix(in srgb, var(--glass-fill) 85%, transparent);
-	background-image: var(--glass-sheen);
+	background-image: var(--glass-specular), var(--glass-sheen);
 	box-shadow:
 		inset 0 1px 3px rgb(21 55 76 / 0.16),
 		inset 0 -1px 0 var(--glass-rim-soft);
@@ -456,13 +457,13 @@
 		--glass-blur: min(var(--glass-blur-light), 10px);
 		/* 触屏表面更实，避免文字压在壁纸花纹上 */
 		--glass-fill-light: rgb(255 255 255 / 0.5);
-		--glass-bg-light: rgb(250 250 247 / 0.82);
+		--glass-bg-light: rgb(250 250 247 / 0.88);
 	}
 
 	:root.dark {
 		--glass-blur: min(var(--glass-blur-dark), 10px);
 		--glass-fill-dark: rgb(12 24 32 / 0.5);
-		--glass-bg-dark: rgb(16 26 34 / 0.84);
+		--glass-bg-dark: rgb(16 26 34 / 0.9);
 	}
 
 	.glass-surface::before {

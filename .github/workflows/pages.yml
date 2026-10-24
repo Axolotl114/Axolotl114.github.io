@@ -5,16 +5,15 @@ name: Build & Deploy to GitHub Pages
 # 这样切换部署方式不会造成站点空窗；peaceiris 动作会把 dist/ 推到 gh-pages，
 # 并自动写入 `.nojekyll`（保住 `_astro/` 不被 Jekyll 吞掉）。
 #
-# 触发条件（部署时序）：
-#   - 现在源码还在被前端/后端改动，push 自动触发暂时关闭，只留手动 workflow_dispatch，
-#     手动触发默认 publish=false：只构建、不发布，用来验证 pipeline 本身；
-#   - 源码定稿后，把下面的 push 触发取消注释（push: branches: [main]），
-#     之后每次 main 更新都会自动构建并发布；push 事件下 publish 输入为空，
-#     deploy 步骤的 if 条件会走 github.event_name == 'push' 分支照常发布。
+# 触发条件：
+#   - push 到 main：自动构建并把 dist/ 发布到 gh-pages（源码定稿后已启用）；
+#   - 手动 workflow_dispatch：publish 默认 false —— 只构建验证、不动线上；
+#     需要手动补发时勾选 publish=true。
+#   deploy 步骤的 if：push 事件总是发布，手动事件看 publish 输入。
 
 on:
-  # push:
-  #   branches: [main]
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       publish:

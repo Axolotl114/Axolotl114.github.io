@@ -205,16 +205,16 @@ dist/
 ├── robots.txt / rss.xml / atom.xml / llms.txt
 ```
 
-**体积/页面数基线：以最新构建为准。**
+**体积/页面数基线：** 最新本地构建 `dist = 8.90 MB / 219 文件 / 23 HTML / Pagefind 3 页`（内容清空后；发布时加 `.nojekyll` 共 220 个文件）。
 
 > 2026-10 内容重建：模板演示内容已全部清空（`src/content/posts`、`dynamic`、`projects` 已为空；`src/data/friends`/`sponsors` 示例 JSON 与 `galleryConfig` 演示相册已清空），站点从空内容起步。
-> 因此此前「23.31 MB / 309 文件 / 50 HTML / Pagefind 29 页」的基线**已失效**，不再适用于当前产物；每次构建后在仓库根目录跑 `pnpm size`（或看构建日志末尾 `check-size.mjs` 输出）获取真实数字。
+> 此前「23.31 MB / 309 文件 / 50 HTML / Pagefind 29 页」的基线已失效；每次构建后在仓库根目录跑 `pnpm size`（或看构建日志末尾 `check-size.mjs` 输出）获取真实数字。
 
 | 指标 | 当前状态 |
 | --- | --- |
-| `dist/` 总体积 / 文件数 / HTML 页数 | **以最新构建的 `pnpm size` 输出为准**（空内容起步，体积会明显小于此前的 23.31MB） |
-| Pagefind 索引页数 | **以构建日志 `Indexed N pages` / `dist/pagefind/pagefind-entry.json` 为准** |
-| sitemap URL 数 | 以 `dist/sitemap-0.xml` 实际条目为准 |
+| `dist/` 总体积 / 文件数 / HTML 页数 | **8.90 MB / 219 / 23**（空内容起步；随文章增加而增长） |
+| Pagefind 索引页数 | **3 页**（首页/关于/留言板；文章为空时） |
+| sitemap URL 数 | 以 `dist/sitemap-0.xml` 实际条目为准（`/admin/` 已排除） |
 
 历史参考（内容清空前，仅备查）：`23.31 MB / 309 文件 / 50 HTML / Pagefind 29 页 / sitemap 40`。若后续继续迭代，同样以最新一次 `pnpm build` 的 `pnpm size` 输出为准。
 

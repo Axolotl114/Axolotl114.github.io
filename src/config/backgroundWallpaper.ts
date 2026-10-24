@@ -169,7 +169,7 @@ export const backgroundWallpaper: BackgroundWallpaperConfig = {
 	appearance: {
 		glass: {
 			blur: { light: 18, dark: 20 },
-			saturation: { light: 1.9, dark: 1.75 },
+			saturation: { light: 2.05, dark: 1.9 },
 			borderAlpha: { light: 0.5, dark: 0.22 },
 			radius: { light: 12, dark: 14 },
 			chromatic: true,
