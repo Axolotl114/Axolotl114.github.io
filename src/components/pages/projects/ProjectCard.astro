@@ -82,7 +82,7 @@ const coverClass = gridCoverFullWidth
     <!-- 状态徽标覆盖在封面右上角 -->
     {statusMeta && (
       <span
-        class={`absolute top-3 right-3 z-30 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium backdrop-blur-md ${statusMeta.coverClassName}`}
+        class={`absolute top-3 right-3 z-30 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${statusMeta.coverClassName}`}
       >
         {statusMeta.icon && <Icon name={statusMeta.icon} class="text-sm" />}
         {statusMeta.label}

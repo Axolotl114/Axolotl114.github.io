@@ -172,14 +172,14 @@ const navTitle = siteConfig.navbar.title || siteConfig.title;
     html:not([data-wallpaper-mode="none"])[data-has-wallpaper] .mobile-menu-drawer,
     html:not([data-wallpaper-mode="none"]) body.wallpaper-transparent .mobile-menu-drawer {
         background: rgba(255, 255, 255, 0.55) !important;
-        backdrop-filter: blur(var(--navbar-panel-blur, 20px)) saturate(1.5) !important;
+        backdrop-filter: var(--glass-backdrop, none) !important;
         box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255, 255, 255, 0.18) !important;
         border: 1px solid rgba(0, 0, 0, 0.06) !important;
     }
     :root.dark:not([data-wallpaper-mode="none"])[data-has-wallpaper] .mobile-menu-drawer,
     :root.dark:not([data-wallpaper-mode="none"]) body.wallpaper-transparent .mobile-menu-drawer {
         background: rgba(23, 23, 23, 0.6) !important;
-        backdrop-filter: blur(var(--navbar-panel-blur, 20px)) saturate(1.5) !important;
+        backdrop-filter: var(--glass-backdrop, none) !important;
         box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
         border: 1px solid rgba(255, 255, 255, 0.1) !important;
     }

@@ -147,7 +147,7 @@ function handleError(e: Event) {
 
     <!-- Score badge -->
     {#if score}
-      <div class="absolute top-2 right-2 px-2 py-1 rounded-full text-xs text-white font-medium bg-black/50 backdrop-blur-sm flex items-center gap-1">
+      <div class="absolute top-2 right-2 px-2 py-1 rounded-full text-xs text-white font-medium bg-black/50 flex items-center gap-1">
         <span class="text-yellow-400">⭐</span>
         {score}
       </div>
@@ -166,10 +166,10 @@ function handleError(e: Event) {
       {#if visibleTags.length > 0}
         <div class="flex flex-wrap gap-1 mt-1.5">
           {#each visibleTags as tag}
-            <span class="text-[0.6rem] px-1.5 py-0.5 rounded bg-white/20 text-white/90 backdrop-blur-sm">{tag}</span>
+            <span class="text-[0.6rem] px-1.5 py-0.5 rounded bg-white/20 text-white/90">{tag}</span>
           {/each}
           {#if hiddenTagCount > 0}
-            <span class="text-[0.6rem] px-1.5 py-0.5 rounded bg-white/20 text-white/60 backdrop-blur-sm">+{hiddenTagCount}</span>
+            <span class="text-[0.6rem] px-1.5 py-0.5 rounded bg-white/20 text-white/60">+{hiddenTagCount}</span>
           {/if}
         </div>
       {/if}

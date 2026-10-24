@@ -2,10 +2,24 @@ const CLOSED_CLASS = "float-panel-closed";
 const PANEL_SELECTOR = "[data-floating-panel]";
 const FOCUS_RETURN_ATTRIBUTE = "data-floating-panel-focus-return";
 export const FLOATING_PANEL_CLOSE_EVENT = "floating-panel:close";
+export const OVERLAY_OPENED_EVENT = "axo:overlay-opened";
+export const OVERLAY_ESCAPE_EVENT = "axo:overlay-escape";
 
 const panelObservers = new Map<HTMLElement, MutationObserver>();
 const panelOpenStates = new WeakMap<HTMLElement, boolean>();
 let escapeListenerAttached = false;
+let overlayListenerAttached = false;
+
+export function closeAllFloatingPanels(except?: HTMLElement): void {
+	const panels = Array.from(
+		document.querySelectorAll<HTMLElement>(PANEL_SELECTOR),
+	);
+	for (const panel of panels) {
+		if (panel === except) continue;
+		if (panel.classList.contains(CLOSED_CLASS)) continue;
+		setFloatingPanelOpen(panel, false);
+	}
+}
 
 function getPanelTriggers(panel: HTMLElement): HTMLElement[] {
 	const triggerIds = panel.dataset.floatingPanelTrigger
@@ -47,6 +61,17 @@ function syncFloatingPanelState(panel: HTMLElement): void {
 		panel.dispatchEvent(new Event(FLOATING_PANEL_CLOSE_EVENT));
 	}
 
+	// 单一打开组：任意面板从关闭 → 打开时，先关掉其它浮动面板，
+	// 并广播事件让导航下拉等其它浮层也关闭。
+	if (isOpen && wasOpen !== true) {
+		closeAllFloatingPanels(panel);
+		document.dispatchEvent(
+			new CustomEvent(OVERLAY_OPENED_EVENT, {
+				detail: { element: panel, type: "panel" },
+			}),
+		);
+	}
+
 	// 带 data-floating-panel-scroll-lock 的面板打开时锁定背景滚动（app drawer 行为）；
 	// 该函数在初始化/class 变化/Swup 重扫时都会跑，各类关闭路径都会同步滚动锁。
 	if (panel.hasAttribute("data-floating-panel-scroll-lock")) {
@@ -67,18 +92,23 @@ function handleEscape(event: KeyboardEvent): void {
 		document.querySelectorAll<HTMLElement>(PANEL_SELECTOR),
 	).filter((panel) => !panel.classList.contains(CLOSED_CLASS));
 
-	const activePanel = openPanels.find((panel) => {
-		if (!target) return false;
-		return (
-			panel.contains(target) ||
-			getPanelTriggers(panel).some((trigger) => trigger.contains(target))
-		);
-	});
+	// Esc 关闭所有浮层（面板 + 下拉），并通知其它浮层管理器
+	document.dispatchEvent(new CustomEvent(OVERLAY_ESCAPE_EVENT));
 
-	if (!activePanel) return;
+	if (openPanels.length === 0) return;
 
 	event.preventDefault();
-	setFloatingPanelOpen(activePanel, false);
+
+	const activePanel =
+		openPanels.find((panel) => {
+			if (!target) return false;
+			return (
+				panel.contains(target) ||
+				getPanelTriggers(panel).some((trigger) => trigger.contains(target))
+			);
+		}) ?? openPanels[0];
+
+	closeAllFloatingPanels();
 
 	const triggers = getPanelTriggers(activePanel);
 	const trigger = triggers.find(isVisible) ?? triggers[0];
@@ -90,6 +120,19 @@ function handleEscape(event: KeyboardEvent): void {
 	} finally {
 		trigger.removeAttribute(FOCUS_RETURN_ATTRIBUTE);
 	}
+}
+
+/** 其它浮层（导航下拉）打开 / Esc 时，让浮动面板保持单一打开 */
+function attachOverlayCoordinator(): void {
+	if (overlayListenerAttached) return;
+	overlayListenerAttached = true;
+
+	document.addEventListener(OVERLAY_OPENED_EVENT, (event) => {
+		const detail = (event as CustomEvent<{ type?: string }>).detail;
+		if (!detail || detail.type === "dropdown") {
+			closeAllFloatingPanels();
+		}
+	});
 }
 
 function disconnectRemovedPanelObservers(): void {
@@ -130,6 +173,7 @@ export function initializeFloatingPanels(root: ParentNode = document): void {
 		document.addEventListener("keydown", handleEscape);
 		escapeListenerAttached = true;
 	}
+	attachOverlayCoordinator();
 }
 
 /** 点击指定面板及其忽略元素之外时，将其关闭（从 Layout.astro 迁出） */

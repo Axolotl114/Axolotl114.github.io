@@ -471,13 +471,12 @@ html {
         @apply absolute top-full left-0 pt-2 pointer-events-none z-50;
     }
 
-    .dropdown-container:hover .dropdown-menu,
-    .dropdown-container:focus-within .dropdown-menu {
+    /* 下拉只由 JS 管理的 .is-open 驱动（单一打开组） */
+    .dropdown-container.is-open .dropdown-menu {
         @apply pointer-events-auto;
     }
 
-    .dropdown-container:hover .dropdown-arrow,
-    .dropdown-container:focus-within .dropdown-arrow {
+    .dropdown-container.is-open .dropdown-arrow {
         @apply rotate-180;
     }
 
@@ -486,8 +485,7 @@ html {
         opacity-0 translate-y-[-8px] transition-[opacity,translate,background-color,border-color] duration-200 ease-out;
     }
 
-    .dropdown-container:hover .dropdown-content,
-    .dropdown-container:focus-within .dropdown-content {
+    .dropdown-container.is-open .dropdown-content {
         @apply opacity-100 translate-y-0;
     }
 

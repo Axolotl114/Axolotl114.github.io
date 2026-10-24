@@ -186,7 +186,8 @@ body.wallpaper-transparent .expressive-code .ec-collapse__gradient {
   border: 1px solid var(--line-color);
   border-radius: var(--radius-lg);
   background: var(--btn-regular-bg);
-  backdrop-filter: blur(var(--blur-md));
+  /* v3：无毛玻璃 */
+  backdrop-filter: none;
   transition-property: opacity, background-color, border-color, transform;
   transition-duration: var(--duration-medium);
   transition-timing-function: var(--ease-standard);

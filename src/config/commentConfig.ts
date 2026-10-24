@@ -4,34 +4,27 @@ export const commentConfig: CommentConfig = {
 	// 评论系统类型: none, twikoo, waline, giscus, disqus, artalk，默认为none，即不启用评论系统
 	type: "giscus",
 
-	//twikoo评论系统配置
+	//twikoo评论系统配置（未启用；仅保留类型占位，避免指向模板作者服务）
 	twikoo: {
-		envId: "https://twikoo-cloudflare.2114223063.workers.dev",
+		envId: "",
 		// 设置 Twikoo 评论系统语言
 		lang: "zh-CN",
 		// 是否启用文章访问量统计功能
 		visitorCount: true,
-		// Twikoo JS 文件地址，支持 CDN 链接
-		// 中国推荐1: https://registry.npmmirror.com/twikoo/1.7.14/files/dist/twikoo.min.js
-		// 中国推荐2: https://s4.zstatic.net/npm/twikoo@1.7.14/dist/twikoo.min.js
-		// 国际推荐: https://cdn.jsdelivr.net/npm/twikoo@1.7.14/dist/twikoo.min.js
-		jsUrl: "https://cdn.jsdelivr.net/npm/twikoo@1.7.14/dist/twikoo.min.js",
+		// Twikoo JS 文件地址，支持 CDN 链接（未启用时留空）
+		jsUrl: "",
 		// Twikoo 自定义 CSS 文件地址，为空则不加载
-		cssUrl: "/assets/css/twikoo-custom.css",
+		cssUrl: "",
 	},
 
-	//waline评论系统配置
+	//waline评论系统配置（未启用；本项目虚拟主机无法运行 Waline，见 BACKEND-NOTES.md）
 	waline: {
 		// waline 后端服务地址
-		serverURL: "https://waline.vercel.app",
+		serverURL: "",
 		// 设置 Waline 评论系统语言
 		lang: "zh-CN",
 		// 设置 Waline 评论系统表情地址
-		emoji: [
-			"https://unpkg.com/@waline/emojis@1.4.0/weibo",
-			"https://unpkg.com/@waline/emojis@1.4.0/bilibili",
-			"https://unpkg.com/@waline/emojis@1.4.0/bmoji",
-		],
+		emoji: [],
 		// 评论登录模式。可选值如下：
 		//   'enable'   —— 默认，允许访客匿名评论和用第三方 OAuth 登录评论，兼容性最佳。
 		//   'force'    —— 强制必须登录后才能评论，适合严格社区，关闭匿名评论。
@@ -41,10 +34,10 @@ export const commentConfig: CommentConfig = {
 		visitorCount: true,
 	},
 
-	// artalk评论系统配置
+	// artalk评论系统配置（未启用）
 	artalk: {
 		// artalk后端程序 API 地址
-		server: "https://artalk.example.com/",
+		server: "",
 		// 设置 Artalk 语言
 		locale: "zh-CN",
 		// 是否启用文章访问量统计功能

@@ -81,17 +81,21 @@ const hasChildren = processedLink.children && processedLink.children.length > 0;
 		@apply absolute top-full left-0 pt-2 pointer-events-none z-50;
 	}
 
-	.dropdown-container:hover .dropdown-menu,
-	.dropdown-container:focus-within .dropdown-menu {
+	/* 单一打开组：只由 .is-open 驱动（hover / focus / 键盘都由 JS 统一切换） */
+	.dropdown-container.is-open .dropdown-menu {
 		@apply pointer-events-auto;
 	}
 
-	.dropdown-container:hover .dropdown-arrow,
-	.dropdown-container:focus-within .dropdown-arrow {
+	.dropdown-container.is-open .dropdown-arrow {
 		@apply rotate-180;
 	}
 
-	/* 移动端隐藏下拉菜单 */
+	.dropdown-container.is-open .dropdown-content {
+		opacity: 1;
+		translate: 0 0;
+	}
+
+	/* 移动端隐藏下拉菜单（移动端使用全屏抽屉） */
 	@media (max-width: 768px) {
 		.dropdown-container {
 			@apply hidden;
@@ -100,80 +104,179 @@ const hasChildren = processedLink.children && processedLink.children.length > 0;
 </style>
 
 <script>
-	// 键盘导航支持
-	document.addEventListener('DOMContentLoaded', function() {
-		const dropdowns = document.querySelectorAll('[data-dropdown]');
-		
-		dropdowns.forEach(dropdown => {
-			const trigger = dropdown.querySelector('[data-dropdown-trigger]') as HTMLElement | null;
-			const menu = dropdown.querySelector('[data-dropdown-menu]');
-			const items = dropdown.querySelectorAll('.dropdown-item') as NodeListOf<HTMLElement>;
-			
-			if (!trigger || !menu) return;
-			
-			// 键盘事件处理
-			trigger.addEventListener('keydown', function(e: KeyboardEvent) {
-				if (e.key === 'Enter' || e.key === ' ') {
-					e.preventDefault();
-					toggleDropdown(dropdown, trigger, menu);
-				} else if (e.key === 'ArrowDown') {
-					e.preventDefault();
-					openDropdown(dropdown, trigger, menu);
-					if (items.length > 0) {
-						items[0].focus();
-					}
-				} else if (e.key === 'Escape') {
-					closeDropdown(dropdown, trigger, menu);
-				}
-			});
-			
-			// 菜单项键盘导航
-			items.forEach((item, index) => {
-				item.addEventListener('keydown', function(e: KeyboardEvent) {
-					if (e.key === 'ArrowDown') {
-						e.preventDefault();
-						const nextIndex = (index + 1) % items.length;
-						items[nextIndex].focus();
-					} else if (e.key === 'ArrowUp') {
-						e.preventDefault();
-						const prevIndex = (index - 1 + items.length) % items.length;
-						items[prevIndex].focus();
-					} else if (e.key === 'Escape') {
-						closeDropdown(dropdown, trigger, menu);
-						trigger.focus();
-					}
-				});
-			});
-		});
-		
-		// 点击外部关闭下拉菜单
-		document.addEventListener('click', function(e) {
-			dropdowns.forEach(dropdown => {
-				if (!dropdown.contains(e.target as Node)) {
-					const trigger = dropdown.querySelector('[data-dropdown-trigger]');
-					const menu = dropdown.querySelector('[data-dropdown-menu]');
-					if (trigger && menu) {
-						closeDropdown(dropdown, trigger, menu);
-					}
-				}
-			});
-		});
-	});
-	
-	function toggleDropdown(_dropdown: Element, trigger: Element, menu: Element) {
-		const isOpen = trigger.getAttribute('aria-expanded') === 'true';
-		if (isOpen) {
-			closeDropdown(_dropdown, trigger, menu);
-		} else {
-			openDropdown(_dropdown, trigger, menu);
+	// 导航下拉「单一打开组」：
+	// - 悬停 / 聚焦 / 点击任一下拉时，先关闭其它下拉，并广播 axo:overlay-opened
+	// - 浮动面板（设置/搜索/音乐/移动抽屉）打开时广播同名事件，下拉收到后自动关闭
+	// - Esc / 点击外部关闭全部；aria-expanded 始终同步
+	const OVERLAY_OPENED_EVENT = "axo:overlay-opened";
+	const OVERLAY_ESCAPE_EVENT = "axo:overlay-escape";
+	const CONTAINER_SELECTOR = ".dropdown-container[data-dropdown]";
+
+	type DropdownGlobal = { __axoDropdownManager?: boolean };
+	const dropdownWindow = window as Window & DropdownGlobal;
+
+	function containers(): HTMLElement[] {
+		return Array.from(
+			document.querySelectorAll<HTMLElement>(CONTAINER_SELECTOR),
+		);
+	}
+
+	function triggerOf(container: HTMLElement): HTMLElement | null {
+		return container.querySelector<HTMLElement>("[data-dropdown-trigger]");
+	}
+
+	function isOpen(container: HTMLElement): boolean {
+		return container.classList.contains("is-open");
+	}
+
+	function setOpen(container: HTMLElement, open: boolean): void {
+		container.classList.toggle("is-open", open);
+		const trigger = triggerOf(container);
+		if (trigger) trigger.setAttribute("aria-expanded", String(open));
+	}
+
+	function closeAll(except?: HTMLElement): void {
+		for (const container of containers()) {
+			if (container !== except && isOpen(container)) setOpen(container, false);
 		}
 	}
 
-	function openDropdown(_dropdown: Element, trigger: Element, _menu: Element) {
-		trigger.setAttribute('aria-expanded', 'true');
+	function openContainer(container: HTMLElement): void {
+		closeAll(container);
+		setOpen(container, true);
+		document.dispatchEvent(
+			new CustomEvent(OVERLAY_OPENED_EVENT, {
+				detail: { element: container, type: "dropdown" },
+			}),
+		);
 	}
 
-	function closeDropdown(_dropdown: Element, trigger: Element, _menu: Element) {
-		trigger.setAttribute('aria-expanded', 'false');
+	function closeContainer(container: HTMLElement): void {
+		if (isOpen(container)) setOpen(container, false);
+	}
+
+	function containerFromNode(node: EventTarget | null): HTMLElement | null {
+		if (!(node instanceof Element)) return null;
+		return node.closest<HTMLElement>(CONTAINER_SELECTOR);
+	}
+
+	if (!dropdownWindow.__axoDropdownManager) {
+		dropdownWindow.__axoDropdownManager = true;
+
+		document.addEventListener("pointerover", (event) => {
+			const container = containerFromNode(event.target);
+			if (container) {
+				if (!isOpen(container)) openContainer(container);
+				return;
+			}
+			// 指针进入面板外区域时全关（保留面板内的移动）
+			if (
+				event.target instanceof Element &&
+				event.target.closest(".dropdown-menu")
+			) {
+				return;
+			}
+			closeAll();
+		});
+
+		document.addEventListener("pointerout", (event) => {
+			const container = containerFromNode(event.target);
+			if (!container) return;
+			const related = (event as PointerEvent).relatedTarget;
+			if (related instanceof Node && container.contains(related)) return;
+			closeContainer(container);
+		});
+
+		document.addEventListener("focusin", (event) => {
+			const container = containerFromNode(event.target);
+			if (container) openContainer(container);
+		});
+
+		document.addEventListener("focusout", (event) => {
+			const container = containerFromNode(event.target);
+			if (!container) return;
+			const related = (event as FocusEvent).relatedTarget;
+			if (related instanceof Node && container.contains(related)) return;
+			closeContainer(container);
+		});
+
+		document.addEventListener("click", (event) => {
+			const target = event.target;
+			if (!(target instanceof Element)) return;
+			const container = containerFromNode(target);
+			if (!container) {
+				closeAll();
+				return;
+			}
+			if (target.closest("[data-dropdown-trigger]")) {
+				// 键盘/触屏点击触发：保持打开（hover 已打开时不误关）
+				openContainer(container);
+			} else if (target.closest(".dropdown-item")) {
+				closeAll();
+			}
+		});
+
+		document.addEventListener("keydown", (event) => {
+			if (event.key === "Escape") {
+				const active = containers().find(isOpen);
+				if (!active) return;
+				event.preventDefault();
+				closeContainer(active);
+				triggerOf(active)?.focus();
+				return;
+			}
+
+			const target = event.target;
+			if (!(target instanceof Element)) return;
+			const trigger = target.closest<HTMLElement>(
+				"[data-dropdown-trigger]",
+			);
+			const container = containerFromNode(target);
+			if (!container) return;
+
+			const items = Array.from(
+				container.querySelectorAll<HTMLElement>(".dropdown-item"),
+			);
+			const activeIndex = items.indexOf(document.activeElement as HTMLElement);
+
+			if (trigger) {
+				if (
+					(event.key === "Enter" ||
+						event.key === " " ||
+						event.key === "ArrowDown") &&
+					!isOpen(container)
+				) {
+					event.preventDefault();
+					openContainer(container);
+					if (event.key === "ArrowDown" && items.length > 0) {
+						items[0].focus();
+					}
+				}
+				return;
+			}
+
+			if (!isOpen(container) || items.length === 0) return;
+			if (event.key === "ArrowDown") {
+				event.preventDefault();
+				items[(activeIndex + 1 + items.length) % items.length].focus();
+			} else if (event.key === "ArrowUp") {
+				event.preventDefault();
+				items[(activeIndex - 1 + items.length) % items.length].focus();
+			} else if (event.key === "Home") {
+				event.preventDefault();
+				items[0].focus();
+			} else if (event.key === "End") {
+				event.preventDefault();
+				items[items.length - 1].focus();
+			}
+		});
+
+		document.addEventListener(OVERLAY_OPENED_EVENT, (event) => {
+			const detail = (event as CustomEvent<{ type?: string }>).detail;
+			// 面板打开时关闭所有下拉；下拉自己广播的事件不清空自己
+			if (!detail || detail.type !== "dropdown") closeAll();
+		});
+
+		document.addEventListener(OVERLAY_ESCAPE_EVENT, () => closeAll());
 	}
 </script>

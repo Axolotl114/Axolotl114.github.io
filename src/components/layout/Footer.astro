@@ -1,10 +1,21 @@
 ---
 import fs from "node:fs";
 import path from "node:path";
+import { Icon } from "astro-icon/components";
 import { profileConfig } from "@/config";
 import { url } from "@/utils/url-utils";
 
 const currentYear = new Date().getFullYear();
+
+// 页脚社交图标：直接复用 profileConfig.links（Bilibili / GitHub / RSS / Atom）
+// 保证亮色、暗色与 Hero 模式下都有可见入口
+const socialLinks = profileConfig.links.filter(
+	(link) => !!link.icon && !!link.url,
+);
+function resolveSocialHref(value: string): string {
+	return /^(https?:|mailto:)/i.test(value) ? value : url(value);
+}
+const isExternalLink = (value: string): boolean => /^https?:/i.test(value);
 
 // 读取FooterConfig.html文件内容
 let customFooterHtml = "";
@@ -35,6 +46,22 @@ try {
 	</div>
 
 	<div class="transition flex flex-col items-center justify-center px-6">
+		{socialLinks.length > 0 && (
+			<nav class="footer-social" aria-label="Social links">
+				{socialLinks.map((link) => (
+					<a
+						class="footer-social-link"
+						href={resolveSocialHref(link.url)}
+						aria-label={link.name}
+						title={link.name}
+						rel={isExternalLink(link.url) ? "noopener noreferrer" : undefined}
+						target={isExternalLink(link.url) ? "_blank" : undefined}
+					>
+						<Icon name={link.icon ?? ""} class="text-[1.05rem]" aria-hidden="true" />
+					</a>
+				))}
+			</nav>
+		)}
 		<div class="transition text-50 text-sm text-center wrap">
 			<div class="mb-2">
 				{customFooterHtml && <div set:html={customFooterHtml} />}
@@ -87,3 +114,48 @@ try {
 		</div>
 	</div>
 </footer>
+
+<style>
+	.footer-social {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.6rem;
+		margin: 0.35rem 0 0.4rem;
+	}
+
+	.footer-social-link {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 2.3rem;
+		height: 2.3rem;
+		border-radius: 9999px;
+		border: 1px solid color-mix(in srgb, var(--primary) 32%, transparent);
+		background-color: color-mix(in srgb, var(--card-bg) 70%, transparent);
+		color: var(--primary);
+		text-decoration: none;
+		transition:
+			color 0.2s ease,
+			background-color 0.2s ease,
+			border-color 0.2s ease,
+			transform 0.2s ease;
+	}
+
+	:global(.dark) .footer-social-link {
+		background-color: color-mix(in srgb, var(--card-bg) 55%, transparent);
+	}
+
+	.footer-social-link:hover,
+	.footer-social-link:focus-visible {
+		color: var(--axo-ink, var(--deep-text));
+		background-color: color-mix(in srgb, var(--primary) 20%, var(--card-bg));
+		border-color: color-mix(in srgb, var(--primary) 60%, transparent);
+		transform: translateY(-1px);
+	}
+
+	.footer-social-link:focus-visible {
+		outline: 2px solid var(--primary);
+		outline-offset: 2px;
+	}
+</style>

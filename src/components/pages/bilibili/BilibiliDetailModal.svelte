@@ -64,7 +64,7 @@ function getTypeColor(seasonType: number): string {
 {#if anime}
 	<div
 		use:portal
-		class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+		class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
 		onclick={handleBackdropClick}
 		onkeydown={handleKeydown}
 		role="dialog"
@@ -74,7 +74,7 @@ function getTypeColor(seasonType: number): string {
 		<div class="relative w-full max-w-lg max-h-[90vh] overflow-hidden rounded-xl sm:rounded-2xl bg-(--card-bg) border border-(--line-divider) shadow-2xl animate-in scale-90 sm:scale-100">
 			<!-- 关闭按钮 -->
 			<button
-				class="absolute top-4 right-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition-colors hover:bg-black/70"
+				class="absolute top-4 right-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white transition-colors hover:bg-black/70"
 				onclick={onclose}
 				aria-label={i18n(I18nKey.animeClose)}
 			>

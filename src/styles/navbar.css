@@ -66,8 +66,7 @@
     z-index: -1;
     border-radius: inherit;
     pointer-events: none;
-    /* 只用 blur，避免顶部透明时饱和色带 */
-    backdrop-filter: blur(var(--navbar-surface-blur, 0px));
+    /* v3：无毛玻璃（硬边玻璃 + SVG 折射） */
 }
 
 /* 通用滚动阴影：下滑到内容区时给导航栏加向下投影，与内容区分层。
@@ -254,8 +253,8 @@ html:not([data-wallpaper-mode="none"])
     :is(.dropdown-content, .float-panel) {
     background-color: var(--glass-bg-light) !important;
     background-image: var(--glass-sheen) !important;
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation)) brightness(var(--glass-brightness)) contrast(var(--glass-contrast)) !important;
-    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation)) brightness(var(--glass-brightness)) contrast(var(--glass-contrast)) !important;
+    -webkit-backdrop-filter: var(--glass-backdrop, none) !important;
+    backdrop-filter: var(--glass-backdrop, none) !important;
     box-shadow:
         inset 0 1px 1px var(--glass-rim),
         inset 3px 0 9px -5px var(--glass-cold-edge),
@@ -275,8 +274,8 @@ html:not([data-wallpaper-mode="none"])
     :is(.dropdown-content, .float-panel) {
     background-color: var(--glass-bg-dark) !important;
     background-image: var(--glass-sheen) !important;
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation)) brightness(var(--glass-brightness)) contrast(var(--glass-contrast)) !important;
-    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation)) brightness(var(--glass-brightness)) contrast(var(--glass-contrast)) !important;
+    -webkit-backdrop-filter: var(--glass-backdrop, none) !important;
+    backdrop-filter: var(--glass-backdrop, none) !important;
     box-shadow:
         inset 0 1px 1px var(--glass-rim),
         inset 3px 0 9px -5px var(--glass-cold-edge),
@@ -333,6 +332,12 @@ body.wallpaper-transparent #navbar-wrapper #navbar[data-full-width="true"] > div
 @media (max-width: 1279px) {
     .navbar-icon {
         display: none !important;
+    }
+
+    /* 下拉面板 / 移动端子菜单图标始终显示（社交入口需要） */
+    .dropdown-content .navbar-icon,
+    .mobile-submenu .navbar-icon {
+        display: inline-flex !important;
     }
 }
 

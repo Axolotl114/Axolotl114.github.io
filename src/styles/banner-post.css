@@ -11,12 +11,19 @@
     max-width: min(var(--banner-post-description-width, 50rem), 78vw);
     padding: 0.85rem 2.25rem;
     border-radius: var(--radius-large);
-    background: rgba(0, 0, 0, 0.16);
+    /* v3 液态玻璃：无 blur，透明底 + rim + SVG 折射（glass-surface 提供） */
+    background: transparent;
     font-size: 0.95rem;
     line-height: 1.7;
     font-weight: 400;
     text-shadow: 0 2px 16px rgba(0, 0, 0, 0.6);
     text-wrap: pretty;
+}
+
+/* 图像上的玻璃面板：白字可读性用稍深的液态玻璃底 */
+.banner-post-description.glass-surface {
+    background-color: rgb(12 32 46 / 0.22);
+    border-color: rgb(255 255 255 / 0.32);
 }
 
 .banner-post-description-quote {

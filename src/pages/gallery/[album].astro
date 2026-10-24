@@ -54,7 +54,7 @@ const coverLqipProps = cover
         <!-- 返回按钮 -->
         <a
           href={url("/gallery/")}
-          class="absolute top-4 left-4 inline-flex items-center gap-1.5 text-sm text-white/90 hover:text-white bg-black/30 hover:bg-black/50 backdrop-blur-sm px-3 py-1.5 rounded-lg transition-colors"
+          class="absolute top-4 left-4 inline-flex items-center gap-1.5 text-sm text-white/90 hover:text-white bg-black/30 hover:bg-black/50 px-3 py-1.5 rounded-lg transition-colors"
         >
           <Icon name="material-symbols:arrow-back" class="text-base" />
           {i18n(I18nKey.galleryBackToAlbums)}
@@ -90,7 +90,7 @@ const coverLqipProps = cover
           {albumMeta.tags && albumMeta.tags.length > 0 && (
             <div class="flex flex-wrap gap-1.5 mt-2.5">
               {albumMeta.tags.map((tag) => (
-                <span class="text-xs px-2 py-0.5 rounded bg-white/20 text-white/90 backdrop-blur-sm">
+                <span class="text-xs px-2 py-0.5 rounded bg-white/20 text-white/90">
                   {tag}
                 </span>
               ))}

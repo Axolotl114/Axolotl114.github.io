@@ -1,115 +1,117 @@
 /* =============================================================================
- * Axo · 液态玻璃体系 v2（Liquid Glass）
+ * Axo · 液态玻璃 v3（Liquid Glass · NO frost）
  * -----------------------------------------------------------------------------
- * 视觉语言来自 reference/liquid_glass.html 的 WebGL shader，用 CSS + 极小 JS 还原：
- *   1. 折射：backdrop-filter 的 blur + saturate + brightness + contrast 组合，
- *      再叠 2px 环形「镜片边」——该环单独跑一层更强 backdrop-filter，
- *      让边缘的背景比中心更亮、更饱和，形成可见的折射边（真实采样，不是假渐变）。
- *   2. 色差：边缘左右各压一层冷蓝 / 暖粉内阴影，强度由 --glass-chromatic 控制。
- *   3. 镜面高光：顶部椭圆柔光 + 随指针移动的径向高光（JS 写 --glass-pointer-x/y）。
- *   4. 涟漪：pointerdown 在点击点插入 .glass-ripple，径向高光 + 环，520ms 自动移除。
+ * 核心原则：**不做毛玻璃**。全站不再使用背景模糊（backdrop blur）。
+ *   - 折射：SVG feDisplacementMap 作为 backdrop-filter（Chromium 支持），位移图由
+ *     JS 用 canvas 生成（圆角矩形 SDF → R/G 存位移向量，rim 强、内部弱）。
+ *   - 色散：同一背景用 3 个略有差异的位移量分别取 R/G/B 通道再叠加（RGB 分离）。
+ *   - 边缘：1.5px 渐变 rim（mask 环）+ 1px 白镜面内描边 + 底部暗边 + 左右色差内阴影。
+ *   - 镜面高光：指针跟随 radial 高光（--glass-pointer-x/y）。
+ *   - 涟漪：多圈光谱环（半径增长 / 振幅衰减 / 环宽变窄 / 色相漂移），见 .glass-ripple-v3。
+ *   - 降级：不支持 SVG backdrop-filter 的浏览器（Firefox/Safari 等）自动落在
+ *     「无 blur 的硬边玻璃」：半透明底 + 渐变 rim + inset 高光——绝不退回磨砂。
  *
- * 变量分两套：--glass-*-light / --glass-*-dark 由设置面板写入 localStorage；
- * --glass-blur / --glass-saturation / --glass-border / --glass-radius 等
- * 「当前主题生效值」由下面的主题规则解析。移动端与 reduced-motion 自动降级。
+ * 变量的 --glass-blur-* 仍保留给设置面板，但语义已变为「折射强度」（JS 读取并映射到位移 scale）。
  * ========================================================================== */
 
 :root {
-	/* 亮色默认值（设置面板可覆盖） */
+	/* 折射强度（设置面板可覆盖；18px ≈ 基准强度） */
 	--glass-blur-light: 18px;
-	--glass-saturation-light: 1.9;
-	--glass-border-alpha-light: 0.5;
-	--glass-radius-light: 12px;
-	--glass-chromatic-light: 1;
-
-	/* 暗色默认值（设置面板可覆盖） */
 	--glass-blur-dark: 20px;
-	--glass-saturation-dark: 1.75;
+	--glass-saturation-light: 1.12;
+	--glass-saturation-dark: 1.08;
+	--glass-border-alpha-light: 0.5;
 	--glass-border-alpha-dark: 0.22;
+	--glass-radius-light: 12px;
 	--glass-radius-dark: 14px;
+	--glass-chromatic-light: 1;
 	--glass-chromatic-dark: 1;
 
 	/* 当前主题生效值 */
-	--glass-blur: var(--glass-blur-light);
-	--glass-saturation: var(--glass-saturation-light);
 	--glass-border-alpha: var(--glass-border-alpha-light);
 	--glass-radius: var(--glass-radius-light);
 	--glass-chromatic: var(--glass-chromatic-light);
-	--glass-brightness: var(--glass-brightness-light);
 	--glass-fill: var(--glass-fill-light);
 
-	/* 表面材质（fill 很透明，让背景细节透出来） */
+	/* 表面材质（透明底，靠折射与 rim 建立体感） */
 	--glass-fill-light: rgb(255 255 255 / 0.06);
 	--glass-fill-dark: rgb(12 24 32 / 0.16);
-	/* 面板底色：设置面板/下拉需要有足够实度保证正文可读（壁纸再花也不影响小字） */
+	/* 面板底：保证小字可读 */
 	--glass-bg-light: rgb(250 250 247 / 0.64);
 	--glass-bg-dark: rgb(16 26 34 / 0.7);
 	--glass-bg: var(--glass-bg-light);
 
-	/* 亮度不要太高，否则背景细节被洗白；提高对比/饱和让「折射」感更明显 */
-	--glass-brightness-light: 1.06;
-	--glass-brightness-dark: 1.1;
-	--glass-contrast: 1.12;
-
 	--glass-border: rgb(255 255 255 / var(--glass-border-alpha));
 	--glass-rim: rgb(255 255 255 / 0.95);
-	--glass-rim-soft: rgb(255 255 255 / 0.35);
+	--glass-rim-soft: rgb(255 255 255 / 0.32);
 	--glass-cold-edge: rgb(120 200 255 / calc(0.95 * var(--glass-chromatic, 1)));
 	--glass-warm-edge: rgb(255 170 200 / calc(0.8 * var(--glass-chromatic, 1)));
-
 	--glass-shadow:
 		0 12px 32px rgb(21 55 76 / 0.2), 0 2px 6px rgb(21 55 76 / 0.12);
-	--glass-sheen: linear-gradient(
-		155deg,
-		rgb(255 255 255 / 0.18) 0%,
-		rgb(255 255 255 / 0.02) 30%,
-		rgb(255 255 255 / 0.04) 68%,
-		rgb(255 255 255 / 0.12) 100%
-	);
-	/* 指针高光：JS 未启用时固定在顶部中央，静态观感也成立 */
-	--glass-specular: radial-gradient(
-		170px circle at var(--glass-pointer-x, 50%) var(--glass-pointer-y, 0%),
-		rgb(255 255 255 / 0.42) 0%,
-		rgb(255 255 255 / 0.12) 38%,
-		transparent 72%
-	);
-	--glass-tint: rgb(143 199 232 / 0.14);
-}
 
-:root.dark {
-	--glass-blur: var(--glass-blur-dark);
-	--glass-saturation: var(--glass-saturation-dark);
-	--glass-border-alpha: var(--glass-border-alpha-dark);
-	--glass-radius: var(--glass-radius-dark);
-	--glass-chromatic: var(--glass-chromatic-dark);
-	--glass-brightness: var(--glass-brightness-dark);
-	--glass-fill: var(--glass-fill-dark);
-	--glass-bg: var(--glass-bg-dark);
-	--glass-border: rgb(255 255 255 / var(--glass-border-alpha));
-	--glass-rim: rgb(255 255 255 / 0.55);
-	--glass-rim-soft: rgb(255 255 255 / 0.16);
-	--glass-shadow:
-		0 20px 44px rgb(0 0 0 / 0.42), 0 2px 8px rgb(0 0 0 / 0.28);
+	/* 渐变 rim：沿圆角几何的 1.5px 光边（左上亮、右下弱反光） */
+	--glass-rim-gradient: linear-gradient(
+		135deg,
+		rgb(255 255 255 / 0.95) 0%,
+		rgb(255 255 255 / 0.28) 18%,
+		rgb(255 255 255 / 0.04) 42%,
+		rgb(255 255 255 / 0.03) 62%,
+		rgb(255 255 255 / 0.2) 82%,
+		rgb(255 255 255 / 0.7) 100%
+	);
+
 	--glass-sheen: linear-gradient(
 		155deg,
 		rgb(255 255 255 / 0.16) 0%,
 		rgb(255 255 255 / 0.02) 32%,
-		rgb(255 255 255 / 0.04) 68%,
+		rgb(255 255 255 / 0.03) 70%,
 		rgb(255 255 255 / 0.1) 100%
 	);
 	--glass-specular: radial-gradient(
-		170px circle at var(--glass-pointer-x, 50%) var(--glass-pointer-y, 0%),
-		rgb(255 255 255 / 0.24) 0%,
-		rgb(255 255 255 / 0.06) 38%,
+		180px circle at var(--glass-pointer-x, 50%) var(--glass-pointer-y, 0%),
+		rgb(255 255 255 / 0.34) 0%,
+		rgb(255 255 255 / 0.08) 40%,
 		transparent 72%
 	);
-	--glass-tint: rgb(143 199 232 / 0.08);
+}
+
+:root.dark {
+	--glass-border-alpha: var(--glass-border-alpha-dark);
+	--glass-radius: var(--glass-radius-dark);
+	--glass-chromatic: var(--glass-chromatic-dark);
+	--glass-fill: var(--glass-fill-dark);
+	--glass-bg: var(--glass-bg-dark);
+	--glass-border: rgb(255 255 255 / var(--glass-border-alpha));
+	--glass-rim: rgb(255 255 255 / 0.55);
+	--glass-rim-soft: rgb(255 255 255 / 0.14);
+	--glass-shadow:
+		0 20px 44px rgb(0 0 0 / 0.42), 0 2px 8px rgb(0 0 0 / 0.28);
+	--glass-rim-gradient: linear-gradient(
+		135deg,
+		rgb(255 255 255 / 0.6) 0%,
+		rgb(255 255 255 / 0.16) 20%,
+		rgb(255 255 255 / 0.02) 45%,
+		rgb(255 255 255 / 0.02) 65%,
+		rgb(255 255 255 / 0.12) 84%,
+		rgb(255 255 255 / 0.4) 100%
+	);
+	--glass-sheen: linear-gradient(
+		155deg,
+		rgb(255 255 255 / 0.09) 0%,
+		rgb(255 255 255 / 0.01) 32%,
+		rgb(255 255 255 / 0.02) 70%,
+		rgb(255 255 255 / 0.06) 100%
+	);
+	--glass-specular: radial-gradient(
+		180px circle at var(--glass-pointer-x, 50%) var(--glass-pointer-y, 0%),
+		rgb(255 255 255 / 0.2) 0%,
+		rgb(255 255 255 / 0.04) 40%,
+		transparent 72%
+	);
 }
 
 /* ---------------------------------------------------------------------------
- * 基础表面
- * 注意：position: relative / overflow: hidden 为「镜片边」与涟漪提供几何；
- * 已知的绝对定位表面在下面单独还原，避免破坏布局。
+ * 基础表面（硬边玻璃 fallback 也是这套；JS 支持时把 --glass-backdrop 设成 url(#…)）
  * ------------------------------------------------------------------------- */
 .glass-surface {
 	position: relative;
@@ -120,21 +122,16 @@
 	border: 1px solid var(--glass-border);
 	border-radius: var(--glass-radius);
 	box-shadow:
-		/* 顶部 1px 镜面高光 / 底部反光 */
 		inset 0 1px 1px var(--glass-rim),
 		inset 0 -1px 1px var(--glass-rim-soft),
-		/* 色差：左右冷暖边，贴合圆角几何 */
 		inset 4px 0 10px -5px var(--glass-cold-edge),
 		inset -4px 0 10px -5px var(--glass-warm-edge),
-		/* 顶部柔光与底部暗边，制造厚度 */
-		inset 0 12px 20px -16px var(--glass-rim),
-		inset 0 -14px 24px -18px rgb(21 55 76 / 0.6),
+		inset 0 14px 22px -18px var(--glass-rim),
+		inset 0 -16px 26px -20px rgb(21 55 76 / 0.55),
 		var(--glass-shadow);
-	-webkit-backdrop-filter: blur(var(--glass-blur))
-		saturate(var(--glass-saturation)) brightness(var(--glass-brightness))
-		contrast(var(--glass-contrast));
-	backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation))
-		brightness(var(--glass-brightness)) contrast(var(--glass-contrast));
+	/* 由 JS 注入的 SVG 折射滤镜；不支持时是 none（硬边玻璃，绝不 blur） */
+	-webkit-backdrop-filter: var(--glass-backdrop, none);
+	backdrop-filter: var(--glass-backdrop, none);
 	transition:
 		background-color 0.3s var(--ease-standard, ease),
 		border-color 0.3s var(--ease-standard, ease),
@@ -142,17 +139,17 @@
 		border-radius 0.3s var(--ease-standard, ease);
 }
 
-/* 镜片边：2px 环单独采样背景（更亮/更饱和）→ 可见的边缘折射环 */
+/* 渐变 rim：1.5px 环，跟随圆角；纯 CSS，无 filter（Safari/Firefox 同样可见） */
 .glass-surface::before {
 	content: "";
 	position: absolute;
 	inset: 0;
 	z-index: 2;
 	box-sizing: border-box;
-	padding: 2px;
+	padding: 1.5px;
 	border-radius: inherit;
 	pointer-events: none;
-	background: transparent;
+	background: var(--glass-rim-gradient);
 	-webkit-mask:
 		linear-gradient(#000 0 0) content-box,
 		linear-gradient(#000 0 0);
@@ -161,41 +158,22 @@
 		linear-gradient(#000 0 0) content-box,
 		linear-gradient(#000 0 0);
 	mask-composite: exclude;
-	-webkit-backdrop-filter: blur(2px) saturate(2.6) brightness(1.3)
-		contrast(1.18);
-	backdrop-filter: blur(2px) saturate(2.6) brightness(1.3) contrast(1.18);
 	mix-blend-mode: screen;
-	opacity: 0.55;
+	opacity: 0.9;
 }
 
-/* 已由外部定位的表面：还原定位，避免默认 relative 破坏布局 */
+/* 由外部定位的表面：还原定位，避免默认 relative 破坏布局 */
 #display-setting.glass-surface,
 .post-card-enter-btn.glass-surface {
 	position: absolute;
 }
 
-/* 设置面板是滚动容器：镜片环会随内容滚动，改为只保留描边高光 */
-#display-setting.glass-surface::before {
-	display: none;
-}
-
-/* 不支持 backdrop-filter 的浏览器：退化为更实的表面，保证可读 */
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-	.glass-surface {
-		background-color: color-mix(
-			in srgb,
-			var(--glass-fill) 55%,
-			var(--card-bg, white) 45%
-		);
-	}
-}
-
-/* 交互反馈：亮一层；按下极轻缩放 */
+/* 交互反馈 */
 .glass-surface:hover {
-	background-color: color-mix(in srgb, var(--glass-fill) 72%, white 28%);
+	background-color: color-mix(in srgb, var(--glass-fill) 70%, white 30%);
 }
 .glass-surface:active {
-	background-color: color-mix(in srgb, var(--glass-fill) 60%, white 40%);
+	background-color: color-mix(in srgb, var(--glass-fill) 55%, white 45%);
 }
 .glass-surface:focus-visible {
 	outline: 2px solid var(--primary);
@@ -203,36 +181,68 @@
 }
 
 /* ---------------------------------------------------------------------------
- * 点击涟漪（JS 插入 .glass-ripple）
+ * 点击涟漪 v3（对应 reference/liquid_glass.html 的 shader：多圈、衰减、变窄、光谱色）
  * ------------------------------------------------------------------------- */
-.glass-ripple {
+.glass-ripple-v3 {
 	position: absolute;
 	z-index: 3;
-	width: 240px;
-	height: 240px;
-	margin: -120px 0 0 -120px;
-	border-radius: 50%;
+	left: var(--ripple-x, 50%);
+	top: var(--ripple-y, 50%);
+	width: 0;
+	height: 0;
 	pointer-events: none;
-	background: radial-gradient(
-		circle,
-		rgb(255 255 255 / 0.6) 0%,
-		rgb(190 233 255 / 0.26) 36%,
-		transparent 70%
-	);
-	box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.45);
-	mix-blend-mode: screen;
-	animation: glass-ripple 0.52s cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
-	will-change: transform, opacity;
 }
 
-@keyframes glass-ripple {
-	from {
-		transform: scale(0.14);
-		opacity: 0.9;
+.glass-ripple-v3 i {
+	position: absolute;
+	left: 0;
+	top: 0;
+	width: 22px;
+	height: 22px;
+	margin: -11px 0 0 -11px;
+	border-radius: 50%;
+	border: 3px solid rgb(255 255 255 / 0.95);
+	background: radial-gradient(
+		circle,
+		rgb(255 255 255 / 0.22) 0%,
+		rgb(255 255 255 / 0.04) 42%,
+		transparent 64%
+	);
+	box-shadow:
+		0 0 16px 3px rgb(120 220 255 / 0.6),
+		0 0 30px 7px rgb(255 130 220 / 0.26),
+		inset 0 0 10px rgb(255 255 255 / 0.75);
+	mix-blend-mode: screen;
+	opacity: 0;
+	animation: glass-ring 780ms cubic-bezier(0.16, 0.7, 0.2, 1) forwards;
+	animation-delay: calc(var(--ring-index, 0) * 90ms);
+	will-change: transform, opacity, border-width, filter;
+}
+
+.glass-ripple-v3 i:nth-child(2) {
+	animation-duration: 900ms;
+	border-color: rgb(190 240 255 / 0.95);
+}
+.glass-ripple-v3 i:nth-child(3) {
+	animation-duration: 1020ms;
+	border-color: rgb(255 205 235 / 0.9);
+}
+
+@keyframes glass-ring {
+	0% {
+		transform: scale(0.3);
+		opacity: 1;
+		border-width: 4px;
+		filter: hue-rotate(0deg) saturate(2.6) brightness(1.35);
 	}
-	to {
-		transform: scale(1);
+	30% {
+		opacity: 0.85;
+	}
+	100% {
+		transform: scale(16);
 		opacity: 0;
+		border-width: 0.4px;
+		filter: hue-rotate(260deg) saturate(3) brightness(1.2);
 	}
 }
 
@@ -264,7 +274,7 @@
 }
 
 .glass-button--quiet {
-	background-color: color-mix(in srgb, var(--glass-fill) 75%, transparent);
+	background-color: color-mix(in srgb, var(--glass-fill) 78%, transparent);
 	border-color: color-mix(in srgb, var(--glass-border) 62%, transparent);
 }
 
@@ -332,13 +342,12 @@
 	);
 }
 
-/* Firefly 的浮动面板统一换成玻璃 token（navbar.css 里的 !important 规则见该文件同步修改） */
 .float-panel,
 .dropdown-content {
 	border-radius: var(--glass-radius, 0.9rem);
 }
 
-/* 设置面板内的按钮：薄液层，文字与滑块保持高对比；背景图带指针镜面高光 */
+/* 设置面板内的按钮：薄液层，文字与滑块保持高对比 */
 #display-setting .btn-regular,
 #display-setting .btn-plain {
 	position: relative;
@@ -348,10 +357,11 @@
 	background-image: var(--glass-specular), var(--glass-sheen);
 	box-shadow:
 		inset 0 1px 0 var(--glass-rim-soft),
-		inset 2px 0 5px -3px var(--glass-cold-edge),
-		inset -2px 0 5px -3px var(--glass-warm-edge);
-	-webkit-backdrop-filter: blur(8px) saturate(1.5) brightness(1.08);
-	backdrop-filter: blur(8px) saturate(1.5) brightness(1.08);
+		inset 2px 0 6px -3px var(--glass-cold-edge),
+		inset -2px 0 6px -3px var(--glass-warm-edge),
+		inset 0 10px 16px -14px var(--glass-rim);
+	-webkit-backdrop-filter: var(--glass-backdrop, none);
+	backdrop-filter: var(--glass-backdrop, none);
 	color: var(--axo-ink, inherit);
 }
 
@@ -375,14 +385,11 @@
 	box-shadow:
 		inset 0 1px 3px rgb(21 55 76 / 0.16),
 		inset 0 -1px 0 var(--glass-rim-soft);
+	-webkit-backdrop-filter: var(--glass-backdrop, none);
+	backdrop-filter: var(--glass-backdrop, none);
 }
 
-#display-setting .glass-well .glass-well-inner {
-	position: relative;
-	z-index: 1;
-}
-
-/* 滑块轨道/文字在玻璃上保持可读：正文用墨色，暗色用近白 */
+/* 滑块轨道/文字在玻璃上保持可读 */
 #display-setting {
 	color: var(--axo-ink, inherit);
 }
@@ -411,7 +418,6 @@
 	outline-offset: 3px;
 }
 
-/* 自定义背景 URL 输入：玻璃面板上保持实底与墨色文字，焦点环始终可见 */
 #display-setting input[type="url"],
 #display-setting input[type="text"] {
 	color: var(--axo-ink, inherit);
@@ -424,7 +430,6 @@
 	outline-offset: 2px;
 }
 
-/* 上传控件：隐藏原生 file input，用玻璃按钮触发 */
 #display-setting .glass-file-input {
 	position: absolute;
 	width: 1px;
@@ -445,40 +450,29 @@
 }
 
 /* ---------------------------------------------------------------------------
- * 移动端 / 触屏降级
- * 用「覆盖 token」而不是逐条覆盖 backdrop-filter，避免和 navbar.css 的
- * !important 规则打特异性官司；所有玻璃消费方读的都是同一批变量。
+ * 移动端 / 触屏降级：关闭 JS 折射（硬边玻璃），表面更实，关闭涟漪
  * ------------------------------------------------------------------------- */
 @media (max-width: 768px), (hover: none) {
 	:root {
-		/* 关色差与镜片环 */
 		--glass-chromatic: 0 !important;
-		/* 低 blur：取用户值与 10px 的较小者（--glass-blur-light 是面板写入的内联值） */
-		--glass-blur: min(var(--glass-blur-light), 10px);
-		/* 触屏表面更实，避免文字压在壁纸花纹上 */
-		--glass-fill-light: rgb(255 255 255 / 0.5);
-		--glass-bg-light: rgb(250 250 247 / 0.88);
+		--glass-fill-light: rgb(255 255 255 / 0.34);
+		--glass-bg-light: rgb(250 250 247 / 0.86);
 	}
 
 	:root.dark {
-		--glass-blur: min(var(--glass-blur-dark), 10px);
-		--glass-fill-dark: rgb(12 24 32 / 0.5);
-		--glass-bg-dark: rgb(16 26 34 / 0.9);
-	}
-
-	.glass-surface::before {
-		display: none;
+		--glass-fill-dark: rgb(12 24 32 / 0.34);
+		--glass-bg-dark: rgb(16 26 34 / 0.88);
 	}
 
 	.glass-surface,
 	#display-setting .btn-regular,
-	#display-setting .btn-plain {
-		-webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.25)
-			brightness(1.04);
-		backdrop-filter: blur(var(--glass-blur)) saturate(1.25) brightness(1.04);
+	#display-setting .btn-plain,
+	#display-setting .glass-well {
+		-webkit-backdrop-filter: none;
+		backdrop-filter: none;
 	}
 
-	.glass-ripple {
+	.glass-ripple-v3 {
 		display: none;
 	}
 
@@ -487,21 +481,21 @@
 	}
 }
 
-/* 小屏（≤480px）收窄设置面板，避免几乎遮满屏幕；预设 4 列仍保留最小可点宽度 */
+/* 小屏（≤480px）收窄设置面板 */
 @media (max-width: 480px) {
 	#display-setting {
 		width: 17.5rem;
 	}
 }
 
-/* reduced-motion：去掉所有玻璃过渡与指针高光/涟漪 */
+/* reduced-motion：去掉过渡与涟漪（折射是静态的，不影响） */
 @media (prefers-reduced-motion: reduce) {
 	.glass-surface,
 	.glass-button {
 		transition: none;
 	}
 
-	.glass-ripple {
+	.glass-ripple-v3 {
 		display: none;
 	}
 

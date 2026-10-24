@@ -359,8 +359,7 @@ html.is-page-transitioning .banner-home-text-overlay {
     color: rgba(255, 255, 255, 0.92);
     background: rgba(255, 255, 255, 0.14);
     border: 1px solid rgba(255, 255, 255, 0.18);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    /* v3：无 blur，透明硬边玻璃 */
     transition: background-color 0.25s ease, color 0.25s ease, transform 0.2s ease;
 }
 
