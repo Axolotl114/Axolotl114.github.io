@@ -1,5 +1,5 @@
-﻿# Axo
-> Axolotl 的个人小站：记录动画、游戏与日常的碎片，也收藏一些关于前端与设计的折腾笔记。整个站点构建为纯静态文件，免费托管在 GitHub Pages 上。
+﻿# Axolotl_114's Blog
+> Axolotl_114 的个人小站：记录动画、游戏与日常的碎片，也收藏一些关于前端与设计的折腾笔记。整个站点构建为纯静态文件，免费托管在 GitHub Pages 上。
 
 ## Key Pages
 - [主页](https://axolotl114.github.io/)
@@ -11,23 +11,3 @@
 - [项目](https://axolotl114.github.io/projects/): 这里展示我开发过的项目
 
 ## Recent Posts
-- [eMudhra 证书事件：浏览器自测与简要处理指南](https://axolotl114.github.io/posts/emudhra-ca-security-guide/): 遇到 eMudhra 证书检测红色提示时，如何更新、复测并判断结果，附原始检测网站与事件报告。
-- [Markdown 写作指南：基础语法与 Firefly 扩展](https://axolotl114.github.io/posts/markdown-tutorial/): 从基础语法到代码、公式、图表和 MDX 的分章写作指南，通过所属系列切换章节。
-- [基础语法：标题、段落与强调](https://axolotl114.github.io/posts/markdown-basics/): 本章介绍标题、段落、换行和强调。它们决定文字的基本层次，不需要额外插件。
-- [结构排版：列表、引用与分隔线](https://axolotl114.github.io/posts/markdown-lists-quotes/): 列表适合步骤和并列要点；引用用于标明引述内容。先选择合适的结构，再添加强调。
-- [链接、图片、转义与 HTML](https://axolotl114.github.io/posts/markdown-links-images/): 链接和图片都使用方括号描述内容，再用圆括号填写地址。描述应让读者在打开之前知道目标是什么。
-- [扩展语法：表格、任务列表与删除线](https://axolotl114.github.io/posts/markdown-gfm/): 本章收集常见的 GitHub 风格 Markdown 扩展。它们适合对比信息与记录进度，但不是所有 Markdown 渲染器都支持。
-- [Meowtils 使用指南：安装、功能与扩展开发](https://axolotl114.github.io/posts/meowtils/getting-started/): 涵盖安装、功能模块、扩展开发与排错，通过所属系列按顺序阅读四个章节。
-- [Meowtils 文档教程（二）：功能模块速查](https://axolotl114.github.io/posts/meowtils/modules/): 按八个分类整理 81 个控制与功能条目，概括用途、原文风险标签、战绩依赖和个人名单区别。
-- [Meowtils 文档教程（三）：扩展开发指南](https://axolotl114.github.io/posts/meowtils/extensions/): 梳理 Meowtils 扩展的加载、入口、事件、界面组件、配置及工具 API，并提供章节索引。
-- [Meowtils 文档教程（四）：排错与支持](https://axolotl114.github.io/posts/meowtils/troubleshooting/): 整理界面、战绩、功能冲突、扩展、更新和卸载问题的排查方向，以及官方支持与许可入口。
-- [网站书签导航：开发、创作、游戏与日常工具](https://axolotl114.github.io/posts/website-bookmarks/): 按用途整理的 505 条网站与文章书签，涵盖博客建站、前端设计、AI、Minecraft、影音创作、效率工具及学习生活，附分类索引。
-- [Random Mage 图片 API 使用教程：从随机出图到自定义筛选](https://axolotl114.github.io/posts/random-mage-api-guide/): 从随机出图入门，掌握 Random Mage 图片 API 的标签、尺寸、AI 类型筛选，以及批量 JSON、瀑布流、镜像和网页接入方法。
-- [The PotPvP Directory ~ 漠海拾遗](https://axolotl114.github.io/posts/potpvp-directory/): PotPvP 社区资料合集，涵盖客户端、材质包、服务器、工具、游戏教程，以及 OBS 录制、Vegas 剪辑、视频扩帧与补帧。
-- [VSC常用代码技巧(整理)](https://axolotl114.github.io/posts/vsc-method/): 长时间未使用 VS Code 编辑器后，发现许多便捷的 Emmet 缩写方法已生疏。重新查阅资料后，将常用语法整理成笔记，便于共同参考与快速回顾。
-- [图片裂图？图床链接失效？你一定得知道的补救措施！](https://axolotl114.github.io/posts/measure-url-picbed/): 图片裂图链接无法生效，看完教程你直接顿悟！
-- [Hexo+GithubPages部署博客](https://axolotl114.github.io/posts/hexo/): 深入了解如何使用Hexo框架+Github Pages搭建一个属于你的个人博客，新手必看系列
-- [代码：行内代码、代码块与高亮](https://axolotl114.github.io/posts/code-examples/): 在Firefly中使用表达性代码的代码块在 Markdown 中的外观。
-- [内容关联：Wiki 链接](https://axolotl114.github.io/posts/guide/firefly-wiki-link/): 在 Firefly 文章中使用 Obsidian 风格的 Wiki Link 内部链接，并自动生成文章链接卡片。
-- [数学公式：KaTeX 写法与示例](https://axolotl114.github.io/posts/katex-math-example/): 展示 Firefly 主题对 KaTeX 数学公式的支持，包括行内公式、块级公式和复杂数学符号。
-- [组件扩展：MDX 与 JSX](https://axolotl114.github.io/posts/mdx-example/): 这是一个 MDX 格式的示例文章，展示了如何在 Markdown 中使用 JSX。
