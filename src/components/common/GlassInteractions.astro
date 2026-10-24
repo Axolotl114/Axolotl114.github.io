@@ -1,29 +1,32 @@
 ---
 /**
- * 液态玻璃 v3 交互层（NO FROST）
+ * 液态玻璃 v4 交互层（按 reference/liquid_glass.html 复刻，NO FROST）
  * -------------------------------------------------------------------------
- * 1) 折射：为 .glass-surface / 浮动面板 / 设置面板控件按元素尺寸生成圆角矩形
- * SDF 位移图（canvas → dataURL），组装带 RGB 色散的 SVG filter，写
- * --glass-backdrop: url(#id) 供 CSS 的 backdrop-filter 使用。
- * 只在 Chromium 生效（当前唯一真正渲染 SVG backdrop-filter 的浏览器）；
- * 其他浏览器保留 CSS 硬边玻璃，绝不退回 blur。
- * 2) 镜面高光：pointermove 写 --glass-pointer-x/y（rAF 合并）。
- * 3) 涟漪：pointerdown 在点击点插入多圈光谱环（半径增大 / 环宽变窄 / 色相漂移）。
- * 事件全部委托到 document；Swup 切页无需重绑。
+ * 对每个玻璃表面：
+ *   1) 静态位移图 = 圆角矩形 SDF 边缘折射（示例 .018*edge，按元素尺寸放大到可见）
+ *   2) 指针镜头 = exp(-dot(v,v)*K) 径向外扩（示例 .018*lens）
+ *   3) pointerdown = 一圈涟漪（radius=age*.3、环宽 exp(-((rd-radius)/.05)^2)、
+ *      fade=exp(-age*.5)、amp=.045）；rAF 期间用 canvas 重绘位移图，
+ *      通过 feImage 的 dataURL 更新；结束后回到静态缓存图。
+ *   4) 同一位移图喂给 3 个不同 scale 的 feDisplacementMap（R/G/B 分离再叠加），
+ *      所以光环/边缘的颜色是背景被通道位移后的色散，不是彩色 overlay。
+ *
+ * 仅 Chromium 支持 SVG backdrop-filter；其他浏览器保留无 blur 的硬边玻璃。
+ * 可调：--axo-glass-distortion（0 关闭位移，默认 1）、--axo-glass-dispersion（默认 .18）。
  */
 ---
 
 <script is:inline data-swup-ignore-script>
-	(function initAxoLiquidGlassV3() {
-		if (window.__axoLiquidGlassV3) return;
-		window.__axoLiquidGlassV3 = true;
+	(function initAxoLiquidGlassV4() {
+		if (window.__axoLiquidGlassV4) return;
+		window.__axoLiquidGlassV4 = true;
 
 		var SVG_NS = "http://www.w3.org/2000/svg";
 		var XLINK_NS = "http://www.w3.org/1999/xlink";
 		var reduceQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
 		var coarseQuery = window.matchMedia("(hover: none), (pointer: coarse)");
 
-		/* ── 能力探测：CSS 接受 + 真的是 Chromium ─────────────────────── */
+		/* ── 能力探测 ────────────────────────────────────────────────── */
 		var supportsLens = (function () {
 			try {
 				var css =
@@ -48,7 +51,38 @@
 			supportsLens ? "on" : "off",
 		);
 
-		/* ── 容器与基础工具 ───────────────────────────────────────────── */
+		/* ── 工具 ────────────────────────────────────────────────────── */
+		function clamp(n, min, max) {
+			return Math.min(max, Math.max(min, n));
+		}
+
+		function readNumberVar(name, fallback) {
+			var raw = window
+				.getComputedStyle(document.documentElement)
+				.getPropertyValue(name);
+			var value = Number.parseFloat(raw);
+			return Number.isFinite(value) ? value : fallback;
+		}
+
+		function tunables() {
+			return {
+				distortion: clamp(readNumberVar("--axo-glass-distortion", 1), 0, 2.5),
+				dispersion: clamp(readNumberVar("--axo-glass-dispersion", 0.34), 0, 0.62),
+			};
+		}
+
+		function prim(name, attrs) {
+			var el = document.createElementNS(SVG_NS, name);
+			if (attrs) {
+				for (var key in attrs) {
+					if (Object.prototype.hasOwnProperty.call(attrs, key)) {
+						el.setAttribute(key, attrs[key]);
+					}
+				}
+			}
+			return el;
+		}
+
 		var defsHost = null;
 		function ensureDefsHost() {
 			if (defsHost && defsHost.isConnected) return defsHost;
@@ -66,30 +100,17 @@
 			return defsHost;
 		}
 
-		function prim(name, attrs) {
-			var el = document.createElementNS(SVG_NS, name);
-			if (attrs) {
-				for (var key in attrs) {
-					if (Object.prototype.hasOwnProperty.call(attrs, key)) {
-						el.setAttribute(key, attrs[key]);
-					}
-				}
-			}
-			return el;
+		function lensEnabled() {
+			return (
+				supportsLens && !coarseQuery.matches && window.innerWidth >= 768
+			);
 		}
-
-		function clamp(n, min, max) {
-			return Math.min(max, Math.max(min, n));
-		}
-
-		/* ── 圆角矩形 SDF → 位移图（R/G 存 dx/dy，B 中性） ─────────────── */
-		var mapCache = new Map();
 
 		function radiiOf(el, width, height) {
 			var cs = window.getComputedStyle(el);
 			function one(value) {
 				var text = String(value || "0").trim().split(/\s+/)[0] || "0";
-				var n = parseFloat(text);
+				var n = Number.parseFloat(text);
 				if (!Number.isFinite(n)) return 0;
 				return Math.max(
 					0,
@@ -114,99 +135,211 @@
 					factor = Math.min(factor, pairs[i][0] / pairs[i][1]);
 				}
 			}
-			return r.map(function (v) {
-				return v * factor;
-			});
+			return (r[0] + r[1] + r[2] + r[3]) / 4 * factor;
 		}
 
-		function buildMap(width, height, radius, bevel, maxShift) {
-			var bw = Math.max(2, Math.round(width));
-			var bh = Math.max(2, Math.round(height));
-			var key =
-				bw +
-				"x" +
-				bh +
-				"|" +
-				radius.toFixed(1) +
-				"|" +
-				bevel.toFixed(1) +
-				"|" +
-				maxShift.toFixed(2);
-			if (mapCache.has(key)) return mapCache.get(key);
-
-			var cap = 512;
-			var k = Math.min(1, cap / Math.max(bw, bh));
-			var mw = Math.max(8, Math.round(bw * k));
-			var mh = Math.max(8, Math.round(bh * k));
-			var canvas = document.createElement("canvas");
-			canvas.width = mw;
-			canvas.height = mh;
-			var ctx = canvas.getContext("2d");
-			if (!ctx) return null;
-
-			var img = ctx.createImageData(mw, mh);
-			var data = img.data;
-			var hw = bw / 2;
-			var hh = bh / 2;
-			var r = Math.min(radius, Math.min(bw, bh) / 2);
-
-			function sdf(px, py) {
-				var qx = Math.abs(px - hw) - (hw - r);
-				var qy = Math.abs(py - hh) - (hh - r);
-				var ax = Math.max(qx, 0);
-				var ay = Math.max(qy, 0);
-				return Math.sqrt(ax * ax + ay * ay) + Math.min(Math.max(qx, qy), 0) - r;
-			}
-
-			var e = 0.75;
-			for (var y = 0; y < mh; y++) {
-				for (var x = 0; x < mw; x++) {
-					var px = (x + 0.5) / k;
-					var py = (y + 0.5) / k;
-					var depth = -sdf(px, py);
-					var dx = 0;
-					var dy = 0;
-					if (depth > -1 && depth < bevel) {
-						var t = clamp(1 - Math.max(0, depth) / bevel, 0, 1);
-						// rim 强、内部快速衰减（shader 的边缘折射环）
-						var mag = t * t * (0.55 + 0.45 * t);
-						var gx = sdf(px + e, py) - sdf(px - e, py);
-						var gy = sdf(px, py + e) - sdf(px, py - e);
-						var gl = Math.sqrt(gx * gx + gy * gy) || 1;
-						dx = -(gx / gl) * mag;
-						dy = -(gy / gl) * mag;
-					}
-					var i = (y * mw + x) * 4;
-					data[i] = Math.round(128 + dx * 127);
-					data[i + 1] = Math.round(128 + dy * 127);
-					data[i + 2] = 128;
-					data[i + 3] = 255;
-				}
-			}
-			ctx.putImageData(img, 0, 0);
-			var record = { url: canvas.toDataURL("image/png"), maxShift: maxShift };
-			mapCache.set(key, record);
-			return record;
-		}
-
-		/* ── 带 RGB 色散的 SVG filter ─────────────────────────────────── */
-		var ONLY = {
-			R: "1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0",
-			G: "0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 1 0",
-			B: "0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 1 0",
-		};
-		var filterCache = new Map();
+		/* ── 每个表面的状态 ─────────────────────────────────────────── */
+		var states = new WeakMap();
+		var attached = new Set();
+		var resizeObserver = null;
 		var filterSeq = 0;
 
-		function getFilter(map, maxShift, dispersion) {
-			var key =
-				map.url.slice(-72) +
-				"|" +
-				maxShift.toFixed(2) +
-				"|" +
-				dispersion.toFixed(2);
-			if (filterCache.has(key)) return filterCache.get(key);
+		// 只对大表面挂折射：面板内部的按钮/滑块槽不再各自挂一层，
+		// 否则 1px 边框会被通道位移拆成彩虹描边（示例只有一层玻璃）。
+		var TARGET_SELECTOR = ".glass-surface, .float-panel";
 
+		function ensureState(el) {
+			var st = states.get(el);
+			if (!st) {
+				st = {
+					el: el,
+					ready: false,
+					raf: 0,
+					pointerRaf: 0,
+					pointerTimer: 0,
+					pointer: null,
+					ripple: null,
+				};
+				states.set(el, st);
+			}
+			return st;
+		}
+
+		function pickHref(st, url) {
+			if (st.lastUrl === url) return;
+			st.lastUrl = url;
+			st.feImage.setAttribute("href", url);
+			st.feImage.setAttributeNS(XLINK_NS, "xlink:href", url);
+		}
+
+		function roundedSdf(lx, ly, halfW, halfH, radius) {
+			var qx = Math.abs(lx) - (halfW - radius);
+			var qy = Math.abs(ly) - (halfH - radius);
+			var ax = Math.max(qx, 0);
+			var ay = Math.max(qy, 0);
+			return (
+				Math.sqrt(ax * ax + ay * ay) +
+				Math.min(Math.max(qx, qy), 0) -
+				radius
+			);
+		}
+
+		/* ── 几何 / 参数 ─────────────────────────────────────────────── */
+		function measure(st) {
+			var el = st.el;
+			var W = Math.round(el.offsetWidth || 0);
+			var H = Math.round(el.offsetHeight || 0);
+			if (!W || !H) {
+				var rect = el.getBoundingClientRect();
+				W = Math.round(rect.width);
+				H = Math.round(rect.height);
+			}
+			if (W < 12 || H < 12) return false;
+			if (W * H > 420000) return false;
+			if (!lensEnabled()) return false;
+
+			var cs = window.getComputedStyle(el);
+			var strength = clamp(
+				(Number.parseFloat(cs.getPropertyValue("--glass-blur")) || 18) / 18,
+				0.4,
+				1.6,
+			);
+			var tun = tunables();
+			var distortion = tun.distortion * strength;
+			if (distortion <= 0.02) return false;
+
+			var radius = radiiOf(el, W, H);
+			var shortSide = Math.min(W, H);
+			// 示例卡片高度 342px、视口 900px：边缘位移约 16px（4.7% 卡高），
+			// 这里用 unit 把同一比例映射到任意尺寸，并给小控件一个下限，避免看不见。
+			var unit = clamp(shortSide * 2.2, 90, 460);
+
+			var edgeAmp = clamp(unit * 0.058, 2.6, 28) * distortion;
+			var edgeBand = clamp(unit * 0.08, 3.6, 40);
+			var lensAmp = clamp(unit * 0.055, 2.6, 28) * distortion;
+			var lensRadius = clamp(unit * 0.26, 10, 120);
+			var rippleAmp = clamp(unit * 0.118, 4, 52) * distortion;
+			var rippleSpeed = unit * 0.85;
+			var ringWidth = clamp(unit * 0.13, 3, 34);
+			var maxShift = clamp(edgeAmp + rippleAmp + lensAmp, 9, 96);
+
+			st.W = W;
+			st.H = H;
+			st.radius = radius;
+			st.edgeAmp = edgeAmp;
+			st.edgeBand = edgeBand;
+			st.lensAmp = lensAmp;
+			st.lensRadius = lensRadius;
+			st.rippleAmp = rippleAmp;
+			st.rippleSpeed = rippleSpeed;
+			st.ringWidth = ringWidth;
+			st.maxShift = maxShift;
+			st.dispersion = tun.dispersion;
+			st.distortion = distortion;
+
+			var mapScale = Math.min(1, 300 / Math.max(W, H));
+			var mw = Math.max(8, Math.round(W * mapScale));
+			var mh = Math.max(8, Math.round(H * mapScale));
+			if (st.mw !== mw || st.mh !== mh || !st.canvas) {
+				st.mw = mw;
+				st.mh = mh;
+				st.canvas = document.createElement("canvas");
+				st.canvas.width = mw;
+				st.canvas.height = mh;
+				st.ctx = st.canvas.getContext("2d");
+				st.imageData = st.ctx.createImageData(mw, mh);
+				st.edgeX = new Float32Array(mw * mh);
+				st.edgeY = new Float32Array(mw * mh);
+			}
+			st.sx = W / mw;
+			st.sy = H / mh;
+			// 涟漪持续时间：环半径扫过对角线 + 一点余量（示例 fade 较慢）
+			st.rippleDuration = clamp(
+				((Math.hypot(W, H) * 1.05) / rippleSpeed) * 1000 + 260,
+				700,
+				1800,
+			);
+
+			buildEdgeArrays(st);
+			st.ready = true;
+			return true;
+		}
+
+		function buildEdgeArrays(st) {
+			var mw = st.mw;
+			var mh = st.mh;
+			var W = st.W;
+			var H = st.H;
+			var halfW = W / 2;
+			var halfH = H / 2;
+			var radius = Math.min(st.radius, Math.min(W, H) / 2);
+			var sx = st.sx;
+			var sy = st.sy;
+			var e = Math.max(1, Math.min(sx, sy) * 0.8);
+			var edgeAmp = st.edgeAmp;
+			var edgeBand = st.edgeBand;
+
+			for (var y = 0; y < mh; y++) {
+				var py = (y + 0.5) * sy;
+				var ly = py - halfH;
+				for (var x = 0; x < mw; x++) {
+					var px = (x + 0.5) * sx;
+					var lx = px - halfW;
+					var index = y * mw + x;
+					var sd = roundedSdf(lx, ly, halfW, halfH, radius);
+					var edge = Math.exp(-Math.abs(sd) / edgeBand);
+					if (edge < 0.0035) {
+						st.edgeX[index] = 0;
+						st.edgeY[index] = 0;
+						continue;
+					}
+					var gx =
+						roundedSdf(lx + e, ly, halfW, halfH, radius) -
+						roundedSdf(lx - e, ly, halfW, halfH, radius);
+					var gy =
+						roundedSdf(lx, ly + e, halfW, halfH, radius) -
+						roundedSdf(lx, ly - e, halfW, halfH, radius);
+					var gl = Math.sqrt(gx * gx + gy * gy) || 1;
+					var magnitude = edgeAmp * edge;
+					st.edgeX[index] = (gx / gl) * magnitude;
+					st.edgeY[index] = (gy / gl) * magnitude;
+				}
+			}
+		}
+
+		/* ── 位移图编码 / SVG filter ─────────────────────────────────── */
+		function encodeStatic(st) {
+			var data = st.imageData.data;
+			var edgeX = st.edgeX;
+			var edgeY = st.edgeY;
+			var maxShift = st.maxShift;
+			var count = st.mw * st.mh;
+			for (var i = 0; i < count; i++) {
+				var dx = edgeX[i];
+				var dy = edgeY[i];
+				var len = Math.sqrt(dx * dx + dy * dy);
+				if (len > maxShift) {
+					var k = maxShift / len;
+					dx *= k;
+					dy *= k;
+				}
+				var o = i * 4;
+				data[o] = 128 + (dx / maxShift) * 127;
+				data[o + 1] = 128 + (dy / maxShift) * 127;
+				data[o + 2] = 128;
+				data[o + 3] = 255;
+			}
+			st.ctx.putImageData(st.imageData, 0, 0);
+			return st.canvas.toDataURL("image/png");
+		}
+
+		function setStatic(st) {
+			if (!st.ready) return;
+			st.staticUrl = encodeStatic(st);
+			pickHref(st, st.staticUrl);
+		}
+
+		function ensureFilter(st) {
 			var host = ensureDefsHost();
 			var id = "axo-lens-" + ++filterSeq;
 			var filter = prim("filter", {
@@ -224,43 +357,49 @@
 				preserveAspectRatio: "none",
 				result: "map",
 			});
-			image.setAttribute("href", map.url);
-			image.setAttributeNS(XLINK_NS, "xlink:href", map.url);
+			// 关键：feImage 必须在 filter 进入 DOM 前就带上 href。
+			// 先挂空 feImage 再补 href 时，Chromium 会把该 backdrop 滤镜当作无资源而缓存不重绘。
+			if (st.staticUrl) {
+				image.setAttribute("href", st.staticUrl);
+				image.setAttributeNS(XLINK_NS, "xlink:href", st.staticUrl);
+			}
 			filter.appendChild(image);
 
-			// 把 backdrop 的 alpha 钉成 1：色散是三个通道相加，半透明边缘会被放大成白边
+			// 把 backdrop 的 alpha 钉成 1，避免色散叠加后出现白边
 			filter.appendChild(
 				prim("feColorMatrix", {
 					in: "SourceGraphic",
 					type: "matrix",
-					values: "1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 0 1",
+					values: "1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 0 1",
 					result: "bg",
 				}),
 			);
 
-			// displacement = (channel/255 − 0.5) × scale，因此 scale = 2 × maxShift → 最大位移 maxShift
-			var baseScale = maxShift * 2;
-			var offset = dispersion * 2;
-			var scales = { R: baseScale - offset, G: baseScale, B: baseScale + offset };
 			var channels = ["R", "G", "B"];
+			var ONLY = {
+				R: "1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0",
+				G: "0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0",
+				B: "0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0",
+			};
+			st.displacements = {};
 			for (var c = 0; c < channels.length; c++) {
-				var ch = channels[c];
-				filter.appendChild(
-					prim("feDisplacementMap", {
-						in: "bg",
-						in2: "map",
-						scale: scales[ch].toFixed(2),
-						xChannelSelector: "R",
-						yChannelSelector: "G",
-						result: "d" + ch,
-					}),
-				);
+				var channel = channels[c];
+				var displacement = prim("feDisplacementMap", {
+					in: "bg",
+					in2: "map",
+					scale: "0",
+					xChannelSelector: "R",
+					yChannelSelector: "G",
+					result: "d" + channel,
+				});
+				filter.appendChild(displacement);
+				st.displacements[channel] = displacement;
 				filter.appendChild(
 					prim("feColorMatrix", {
-						in: "d" + ch,
+						in: "d" + channel,
 						type: "matrix",
-						values: ONLY[ch],
-						result: "c" + ch,
+						values: ONLY[channel],
+						result: "c" + channel,
 					}),
 				);
 			}
@@ -289,89 +428,245 @@
 			);
 
 			host.appendChild(filter);
-			var record = { id: id };
-			filterCache.set(key, record);
-			return record;
-		}
-
-		/* ── 给元素挂折射 ─────────────────────────────────────────────── */
-		var LENS_TARGET =
-			".glass-surface, .float-panel, #display-setting .btn-regular, #display-setting .btn-plain, #display-setting .glass-well";
-		var resizeObserver = null;
-		var resizeTimers = new WeakMap();
-
-		function lensEnabled() {
-			return (
-				supportsLens && !coarseQuery.matches && window.innerWidth >= 768
+			st.filter = filter;
+			st.feImage = image;
+			st.filterId = id;
+			st.lastUrl = st.staticUrl || null;
+			// 直接用 inline !important 引用滤镜：实测复杂滤镜经 CSS 变量间接引用时，
+			// Chromium 的 backdrop-filter 可能不生效；inline 方式稳定。
+			st.el.style.setProperty(
+				"backdrop-filter",
+				"url(#" + id + ")",
+				"important",
 			);
+			st.el.style.setProperty(
+				"-webkit-backdrop-filter",
+				"url(#" + id + ")",
+				"important",
+			);
+			st.el.setAttribute("data-glass-lens", "on");
 		}
 
-		function sizeOf(el) {
-			var width = el.offsetWidth;
-			var height = el.offsetHeight;
-			if (!width || !height) {
-				var rect = el.getBoundingClientRect();
-				width = rect.width;
-				height = rect.height;
+		function updateFilterScales(st) {
+			var base = st.maxShift * 2;
+			var dispersion = st.dispersion;
+			st.displacements.R.setAttribute("scale", (base * (1 - dispersion)).toFixed(2));
+			st.displacements.G.setAttribute("scale", base.toFixed(2));
+			st.displacements.B.setAttribute("scale", (base * (1 + dispersion)).toFixed(2));
+		}
+
+		/* ── 动态位移图（指针镜头 + 单圈涟漪） ───────────────────────── */
+		function rippleParams(st, now) {
+			var ripple = st.ripple;
+			if (!ripple) return null;
+			var age = (now - ripple.start) / 1000;
+			if (age < 0) return null;
+			if (age * 1000 > st.rippleDuration) {
+				st.ripple = null;
+				return null;
 			}
-			return [Math.round(width), Math.round(height)];
+			return {
+				age: age,
+				// 示例：radius = age*.3（p 单位）；这里换算成元素像素
+				radius: age * st.rippleSpeed,
+				fade: Math.exp(-age * 0.5),
+				amplitude: st.rippleAmp,
+				width: st.ringWidth,
+			};
 		}
 
-		function applyLens(el) {
-			if (!lensEnabled()) return;
-			var size = sizeOf(el);
-			var width = size[0];
-			var height = size[1];
-			if (width < 12 || height < 12) return;
-			// 超大区域不做折射（避免大面积光栅化；导航条等由硬边玻璃承接）
-			if (width * height > 420000) return;
+		function renderDynamic(st, now) {
+			var data = st.imageData.data;
+			var mw = st.mw;
+			var mh = st.mh;
+			var sx = st.sx;
+			var sy = st.sy;
+			var edgeX = st.edgeX;
+			var edgeY = st.edgeY;
+			var maxShift = st.maxShift;
+			var pointer = st.pointer;
+			var lensAmp = st.lensAmp;
+			var lensRadius = st.lensRadius;
+			var lensOn = !!pointer && st.lensEnabled;
+			var ripple = rippleParams(st, now);
 
-			var computed = window.getComputedStyle(el);
-			var strengthValue =
-				parseFloat(computed.getPropertyValue("--glass-blur")) || 18;
-			var strength = clamp(strengthValue / 18, 0.4, 1.6);
-			var shortSide = Math.min(width, height);
-			var maxShift = clamp(shortSide * 0.11, 2.5, 9) * strength;
-			var bevel = clamp(shortSide * 0.34, 6, Math.max(6, shortSide / 2 - 1));
-			var radii = radiiOf(el, width, height);
-			var radius = (radii[0] + radii[1] + radii[2] + radii[3]) / 4;
-			var dispersion = clamp(maxShift * 0.16, 0.5, 1.8);
+			for (var y = 0; y < mh; y++) {
+				var py = (y + 0.5) * sy;
+				for (var x = 0; x < mw; x++) {
+					var index = y * mw + x;
+					var dx = edgeX[index];
+					var dy = edgeY[index];
 
-			var map = buildMap(width, height, radius, bevel, maxShift);
-			if (!map) return;
-			var filter = getFilter(map, maxShift, dispersion);
-			el.style.setProperty("--glass-backdrop", "url(#" + filter.id + ")");
-			el.setAttribute("data-glass-lens", "on");
+					if (lensOn) {
+						var vx = (x + 0.5) * sx - pointer.x;
+						var vy = py - pointer.y;
+						var distSq = vx * vx + vy * vy;
+						var lens = Math.exp(
+							-distSq / (lensRadius * lensRadius),
+						);
+						if (lens > 0.004) {
+							var vlen = Math.sqrt(distSq) || 1;
+							dx += (vx / vlen) * lensAmp * lens;
+							dy += (vy / vlen) * lensAmp * lens;
+						}
+					}
+
+					if (ripple) {
+						var rx = (x + 0.5) * sx - st.ripple.x;
+						var ry = py - st.ripple.y;
+						var rlen = Math.sqrt(rx * rx + ry * ry);
+						var ring = Math.exp(
+							-Math.pow((rlen - ripple.radius) / ripple.width, 2),
+						) * ripple.fade;
+						if (ring > 0.004) {
+							dx += (rx / (rlen || 1)) * ripple.amplitude * ring;
+							dy += (ry / (rlen || 1)) * ripple.amplitude * ring;
+						}
+					}
+
+					var len = Math.sqrt(dx * dx + dy * dy);
+					if (len > maxShift) {
+						var k = maxShift / len;
+						dx *= k;
+						dy *= k;
+					}
+					var o = index * 4;
+					data[o] = 128 + (dx / maxShift) * 127;
+					data[o + 1] = 128 + (dy / maxShift) * 127;
+					data[o + 2] = 128;
+					data[o + 3] = 255;
+				}
+			}
+			st.ctx.putImageData(st.imageData, 0, 0);
+			pickHref(st, st.canvas.toDataURL("image/png"));
+		}
+
+		function finishRipple(st) {
+			st.ripple = null;
+			st.el.removeAttribute("data-glass-ripple");
+			if (st.pointer && st.lensEnabled) {
+				renderDynamic(st, performance.now());
+			} else {
+				setStatic(st);
+			}
+		}
+
+		function step(st) {
+			st.raf = 0;
+			if (!st.ready) return;
+			if (!st.ripple) {
+				finishRipple(st);
+				return;
+			}
+			renderDynamic(st, performance.now());
+			if (st.ripple) {
+				st.raf = window.requestAnimationFrame(function () {
+					step(st);
+				});
+			} else {
+				finishRipple(st);
+			}
+		}
+
+		function startRipple(st, x, y) {
+			if (!st.ready) return;
+			st.ripple = { x: x, y: y, start: performance.now() };
+			st.el.setAttribute("data-glass-ripple", "on");
+			// 单圈光环：把点击点与动画时长交给 CSS（光环本身是中性镜面高光，
+			// 色散颜色来自背景 RGB 位移，不是叠加的彩色）
+			st.el.style.setProperty("--glass-ripple-x", x + "px");
+			st.el.style.setProperty("--glass-ripple-y", y + "px");
+			st.el.style.setProperty(
+				"--glass-ripple-dur",
+				Math.round(st.rippleDuration || 1000) + "ms",
+			);
+			if (!st.raf) {
+				st.raf = window.requestAnimationFrame(function () {
+					step(st);
+				});
+			}
+		}
+
+		/* ── 指针镜头 ────────────────────────────────────────────────── */
+		function setPointer(st, clientX, clientY) {
+			if (!st.ready || !lensEnabled()) return;
+			var rect = st.el.getBoundingClientRect();
+			st.pointer = {
+				x: clientX - rect.left,
+				y: clientY - rect.top,
+			};
+			st.lensEnabled = true;
+			if (st.ripple) return; // 动画循环会读取 pointer
+			if (st.pointerTimer) return;
+			st.pointerTimer = window.setTimeout(function () {
+				st.pointerTimer = 0;
+				if (!st.ready || st.ripple || !st.pointer) return;
+				renderDynamic(st, performance.now());
+			}, 70);
+		}
+
+		function clearPointer(st) {
+			if (!st.ready) return;
+			st.pointer = null;
+			st.lensEnabled = false;
+			if (st.pointerTimer) {
+				window.clearTimeout(st.pointerTimer);
+				st.pointerTimer = 0;
+			}
+			if (st.ripple) return;
+			setStatic(st);
+		}
+
+		/* ── 挂载 / 解绑 ─────────────────────────────────────────────── */
+		function attach(el) {
+			if (el.closest("[data-no-lens]")) return;
+			var st = ensureState(el);
+			if (!measure(st)) {
+				detach(el);
+				return;
+			}
+			if (!st.filter) {
+				st.staticUrl = encodeStatic(st);
+				ensureFilter(st);
+			}
+			updateFilterScales(st);
+			setStatic(st);
+			attached.add(el);
 			if (resizeObserver) resizeObserver.observe(el);
 		}
 
-		function refreshLens(el) {
-			if (!lensEnabled()) {
-				el.style.removeProperty("--glass-backdrop");
-				el.removeAttribute("data-glass-lens");
-				return;
+		function detach(el) {
+			var st = states.get(el);
+			if (st && st.raf) {
+				window.cancelAnimationFrame(st.raf);
+				st.raf = 0;
 			}
-			applyLens(el);
-		}
-
-		function scheduleRefresh(el) {
-			var existing = resizeTimers.get(el);
-			if (existing) window.clearTimeout(existing);
-			var timer = window.setTimeout(function () {
-				resizeTimers.delete(el);
-				refreshLens(el);
-			}, 160);
-			resizeTimers.set(el, timer);
+			if (st && st.pointerTimer) {
+				window.clearTimeout(st.pointerTimer);
+				st.pointerTimer = 0;
+			}
+			el.style.removeProperty("backdrop-filter");
+			el.style.removeProperty("-webkit-backdrop-filter");
+			el.style.removeProperty("--glass-backdrop");
+			el.removeAttribute("data-glass-lens");
+			el.removeAttribute("data-glass-ripple");
+			attached.delete(el);
 		}
 
 		function attachAll() {
-			if (!supportsLens) return;
-			var targets = document.querySelectorAll(LENS_TARGET);
+			if (!lensEnabled()) return;
+			var targets = document.querySelectorAll(TARGET_SELECTOR);
 			for (var i = 0; i < targets.length; i++) {
-				var el = targets[i];
-				if (el.closest("[data-no-lens]")) continue;
-				refreshLens(el);
+				attach(targets[i]);
 			}
+		}
+
+		function detachAll() {
+			document
+				.querySelectorAll("[data-glass-lens='on']")
+				.forEach(function (el) {
+					detach(el);
+				});
 		}
 
 		function startObserving() {
@@ -383,73 +678,75 @@
 				return;
 			}
 			resizeObserver = new ResizeObserver(function (entries) {
-				for (var i = 0; i < entries.length; i++) {
-					scheduleRefresh(entries[i].target);
-				}
+				entries.forEach(function (entry) {
+					var targetEl = entry.target;
+					var st = states.get(targetEl);
+					if (!st) return;
+					if (st.resizeTimer) window.clearTimeout(st.resizeTimer);
+					st.resizeTimer = window.setTimeout(function () {
+						st.resizeTimer = 0;
+						if (!lensEnabled()) {
+							detach(targetEl);
+							return;
+						}
+						refreshGeometry(targetEl);
+					}, 180);
+				});
 			});
-			document.querySelectorAll(LENS_TARGET).forEach(function (el) {
+			document.querySelectorAll(TARGET_SELECTOR).forEach(function (el) {
 				resizeObserver.observe(el);
 			});
+		}
+
+		function refreshGeometry(el) {
+			var st = states.get(el);
+			if (!st) return;
+			if (!measure(st)) {
+				detach(el);
+				return;
+			}
+			updateFilterScales(st);
+			if (!st.ripple) setStatic(st);
 		}
 
 		function onResize() {
 			if (!supportsLens) return;
 			if (!lensEnabled()) {
-				document
-					.querySelectorAll("[data-glass-lens='on']")
-					.forEach(function (el) {
-						el.style.removeProperty("--glass-backdrop");
-						el.removeAttribute("data-glass-lens");
-					});
+				detachAll();
 				return;
 			}
 			attachAll();
 		}
 
-		/* ── 指针镜面高光（rAF 合并） ─────────────────────────────────── */
-		var GLOW_SELECTOR =
-			".glass-surface, #display-setting .btn-regular, #display-setting .btn-plain, #display-setting .glass-well";
-		var lastHover = null;
-		var raf = 0;
-		var pending = null;
+		/* ── 事件委托 ────────────────────────────────────────────────── */
+		var lastHovered = null;
 
-		function bySelector(node, selector) {
-			if (!node || node.nodeType !== 1) return null;
-			return node.closest ? node.closest(selector) : null;
-		}
-
-		function writePending() {
-			raf = 0;
-			if (!pending) return;
-			pending.el.style.setProperty("--glass-pointer-x", pending.x);
-			pending.el.style.setProperty("--glass-pointer-y", pending.y);
-			pending = null;
-		}
-
-		function clearHover(el) {
-			if (!el) return;
-			el.style.removeProperty("--glass-pointer-x");
-			el.style.removeProperty("--glass-pointer-y");
+		function targetFromEvent(event) {
+			var node = event.target;
+			if (!node || node.nodeType !== 1 || !node.closest) return null;
+			return node.closest(TARGET_SELECTOR);
 		}
 
 		document.addEventListener(
 			"pointermove",
 			function (event) {
-				if (reduceQuery.matches || coarseQuery.matches) return;
-				var el = bySelector(event.target, GLOW_SELECTOR);
-				if (el !== lastHover) {
-					clearHover(lastHover);
-					lastHover = el;
+				if (!supportsLens || !lensEnabled()) return;
+				var el = targetFromEvent(event);
+				if (el !== lastHovered) {
+					if (lastHovered) {
+						var oldState = states.get(lastHovered);
+						if (oldState) clearPointer(oldState);
+					}
+					lastHovered = el;
 				}
 				if (!el) return;
-				var rect = el.getBoundingClientRect();
-				if (!rect.width || !rect.height) return;
-				pending = {
-					el: el,
-					x: (((event.clientX - rect.left) / rect.width) * 100).toFixed(2) + "%",
-					y: (((event.clientY - rect.top) / rect.height) * 100).toFixed(2) + "%",
-				};
-				if (!raf) raf = window.requestAnimationFrame(writePending);
+				var st = states.get(el);
+				if (!st) return;
+				if (!st.ready) {
+					attach(el);
+					st = states.get(el);
+				}
+				if (st) setPointer(st, event.clientX, event.clientY);
 			},
 			{ passive: true },
 		);
@@ -457,64 +754,58 @@
 		document.addEventListener(
 			"pointerleave",
 			function () {
-				clearHover(lastHover);
-				lastHover = null;
+				if (lastHovered) {
+					var st = states.get(lastHovered);
+					if (st) clearPointer(st);
+					lastHovered = null;
+				}
 			},
 			{ passive: true },
 		);
-
-		/* ── 点击涟漪：多圈光谱环（对应 shader ripple） ───────────────── */
-		var RIPPLE_SELECTOR =
-			".glass-surface, .float-panel, #display-setting .btn-regular, #display-setting .btn-plain, #display-setting .glass-well";
 
 		document.addEventListener(
 			"pointerdown",
 			function (event) {
-				if (reduceQuery.matches || coarseQuery.matches) return;
-				var el = bySelector(event.target, RIPPLE_SELECTOR);
+				if (!supportsLens || !lensEnabled()) return;
+				if (reduceQuery.matches) return;
+				var el = targetFromEvent(event);
 				if (!el) return;
-				var rect = el.getBoundingClientRect();
-				if (!rect.width || !rect.height) return;
-
-				var ripple = document.createElement("span");
-				ripple.className = "glass-ripple-v3";
-				ripple.setAttribute("aria-hidden", "true");
-				ripple.style.setProperty(
-					"--ripple-x",
-					(event.clientX - rect.left).toFixed(1) + "px",
-				);
-				ripple.style.setProperty(
-					"--ripple-y",
-					(event.clientY - rect.top).toFixed(1) + "px",
-				);
-				for (var ringIndex = 0; ringIndex < 3; ringIndex++) {
-					var ring = document.createElement("i");
-					ring.style.setProperty("--ring-index", String(ringIndex));
-					ripple.appendChild(ring);
+				var st = states.get(el);
+				if (!st) return;
+				if (!st.ready) {
+					attach(el);
+					st = states.get(el);
 				}
-				el.appendChild(ripple);
-
-				var timer = null;
-				var remove = function () {
-					if (timer) {
-						window.clearTimeout(timer);
-						timer = null;
-					}
-					if (ripple.parentNode) ripple.parentNode.removeChild(ripple);
-				};
-				timer = window.setTimeout(remove, 1200);
-				ripple.addEventListener("animationend", function (animationEvent) {
-					if (animationEvent.target === ripple.lastElementChild) remove();
-				});
+				if (!st || !st.ready) return;
+				var rect = el.getBoundingClientRect();
+				startRipple(
+					st,
+					event.clientX - rect.left,
+					event.clientY - rect.top,
+				);
 			},
 			{ passive: true },
 		);
 
-		/* ── 启动 / 生命周期 ─────────────────────────────────────────── */
+		/* ── 启动 ────────────────────────────────────────────────────── */
 		function boot() {
 			attachAll();
 			startObserving();
 			window.addEventListener("resize", onResize, { passive: true });
+			// 一键开关：<html data-glass-distortion="off"> 立即关闭全部位移
+			if (typeof MutationObserver !== "undefined") {
+				new MutationObserver(function () {
+					if (!supportsLens) return;
+					if (readNumberVar("--axo-glass-distortion", 1) <= 0.02) {
+						detachAll();
+					} else {
+						attachAll();
+					}
+				}).observe(document.documentElement, {
+					attributes: true,
+					attributeFilter: ["data-glass-distortion"],
+				});
+			}
 			if (document.fonts && document.fonts.ready) {
 				document.fonts.ready.then(function () {
 					attachAll();

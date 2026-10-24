@@ -233,34 +233,29 @@ html[data-has-wallpaper] #navbar[data-transparent-mode="semifull"]:not(.scrolled
 
 
 /* ============================================
- * 下拉菜单与浮动面板：始终毛玻璃
+ * 下拉菜单与浮动面板：液态玻璃 v4（无毛玻璃）
  * ============================================
- * 模糊半径跟随 navbar.blur（Layout.astro 注入到 :root 的 --navbar-panel-blur），
- * 但带一个最小值 —— 导航栏可以用 blur: 0 关掉毛玻璃，面板则始终保留毛玻璃。
+ * 与按钮一致：半透明底 + 1px 亮边 + 顶部内高光 + 底部内暗边；
+ * 折射由 JS 注入的 --glass-backdrop（SVG 位移滤镜）提供，Chromium 才有效果。
  *
- * 能生效的前提是导航栏自身的滤镜已经下移到 #navbar>div::before（见文件顶部），
- * 面板不再被祖先的 backdrop root 截断。
- *
- * 纯色背景模式（data-wallpaper-mode="none"）底下没有可模糊的对象，
+ * 纯色背景模式（data-wallpaper-mode="none"）底下没有可折射的对象，
  * 排除掉，落回 main.css 里 .float-panel 原本的不透明卡片样式。
  */
 
-/* 亮色主题 —— 使用 Axo 液态玻璃 token（F2） */
+/* 亮色主题 —— 使用 Axo 液态玻璃 token（v4） */
 html:not([data-wallpaper-mode="none"])[data-has-wallpaper]
     :is(.dropdown-content, .float-panel),
 html:not([data-wallpaper-mode="none"])
     body.wallpaper-transparent
     :is(.dropdown-content, .float-panel) {
     background-color: var(--glass-bg-light) !important;
-    background-image: var(--glass-sheen) !important;
+    background-image: none !important;
     -webkit-backdrop-filter: var(--glass-backdrop, none) !important;
     backdrop-filter: var(--glass-backdrop, none) !important;
     box-shadow:
-        inset 0 1px 1px var(--glass-rim),
-        inset 3px 0 9px -5px var(--glass-cold-edge),
-        inset -3px 0 9px -5px var(--glass-warm-edge),
-        inset 0 12px 22px -18px var(--glass-rim),
-        inset 0 -14px 24px -18px rgb(21 55 76 / 0.5),
+        inset 0 1px 0 var(--glass-rim-soft),
+        inset 0 0 0 0.5px rgb(255 255 255 / 0.12),
+        inset 0 -1px 1px rgb(21 55 76 / 0.16),
         var(--glass-shadow) !important;
     border: 1px solid var(--glass-border) !important;
     border-radius: var(--glass-radius) !important;
@@ -273,15 +268,13 @@ html:not([data-wallpaper-mode="none"])
     body.wallpaper-transparent
     :is(.dropdown-content, .float-panel) {
     background-color: var(--glass-bg-dark) !important;
-    background-image: var(--glass-sheen) !important;
+    background-image: none !important;
     -webkit-backdrop-filter: var(--glass-backdrop, none) !important;
     backdrop-filter: var(--glass-backdrop, none) !important;
     box-shadow:
-        inset 0 1px 1px var(--glass-rim),
-        inset 3px 0 9px -5px var(--glass-cold-edge),
-        inset -3px 0 9px -5px var(--glass-warm-edge),
-        inset 0 12px 22px -18px var(--glass-rim),
-        inset 0 -14px 24px -18px rgb(0 0 0 / 0.55),
+        inset 0 1px 0 var(--glass-rim-soft),
+        inset 0 0 0 0.5px rgb(255 255 255 / 0.08),
+        inset 0 -1px 1px rgb(0 0 0 / 0.26),
         var(--glass-shadow) !important;
     border: 1px solid var(--glass-border) !important;
     border-radius: var(--glass-radius) !important;
