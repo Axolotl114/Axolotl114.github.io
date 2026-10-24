@@ -28,7 +28,15 @@ const heading =
 ---
 
 <MainGridLayout heading={heading}>
-  <PostPage page={page} />
+  {
+    page.data.length === 0 ? (
+      <div class="card-base px-8 py-12 text-center mb-4">
+        <p class="text-30">{i18n(I18nKey.noData)}</p>
+      </div>
+    ) : (
+      <PostPage page={page} />
+    )
+  }
   {
     page.total > page.size && (
       <Pagination

@@ -47,6 +47,7 @@ param(
 	[string]$Message = "",
 	[string]$StagingDir = "",
 	[switch]$IncludePio,
+	[switch]$SkipWorkflowFiles,
 	[switch]$DryRun
 )
 
@@ -104,6 +105,23 @@ $token = $env:GITHUB_TOKEN
 if (-not $token -and -not $DryRun) { Fail "未设置环境变量 GITHUB_TOKEN（classic PAT，scope=repo）" }
 $url = "https://github.com/$Repo.git"
 
+# GitHub 要求 PAT 带 workflow scope 才能推送 .github/workflows/*。
+# 先探测 token 的 scopes，缺 scope 就自动跳过工作流文件（否则整次推送都会被拒绝）。
+if ($token -and -not $SkipWorkflowFiles) {
+	try {
+		$probe = Invoke-WebRequest -Uri "https://api.github.com/user" -Headers @{ Authorization = "Bearer $token"; "User-Agent" = "Axolotl114" } -UseBasicParsing
+		$scopes = ($probe.Headers["X-OAuth-Scopes"] -join ",")
+		Write-Host "token scopes: $scopes"
+		if ($scopes -notmatch '\bworkflow\b') {
+			Write-Host "token 没有 workflow scope：本次自动跳过 .github/workflows（GitHub 会拒绝推送工作流文件）" -ForegroundColor Yellow
+			Write-Host "补法：换带 workflow scope 的 PAT 重跑，或在 GitHub 网页手工添加 .github/workflows/pages.yml" -ForegroundColor Yellow
+			$SkipWorkflowFiles = $true
+		}
+	} catch {
+		Write-Host "无法探测 token scope（$($_.Exception.Message)），按含 workflow 处理；若被拒会自动回退" -ForegroundColor DarkGray
+	}
+}
+
 # ---------------------------------------------------------------- 1) 准备暂存目录
 Step "准备暂存目录 $StagingDir"
 New-Item -ItemType Directory -Path $StagingDir -Force | Out-Null
@@ -149,10 +167,16 @@ try {
 	if (-not $IncludePio) { Write-Host "已跳过 public/pio（看板娘都关闭；需要时加 -IncludePio）" -ForegroundColor DarkGray }
 
 	# .github/workflows：只放 Pages 发布工作流
-	foreach ($wf in $WorkflowFiles) {
-		$dstFile = Join-Path $StagingDir $wf
-		New-Item -ItemType Directory -Path (Split-Path -Parent $dstFile) -Force | Out-Null
-		Copy-Item -LiteralPath (Join-Path $root $wf) -Destination $dstFile -Force
+	# 注意：classic PAT 必须有 `workflow` scope 才能推送 .github/workflows/*，
+	# 否则 GitHub 会拒绝推送（refusing to allow a Personal Access Token ... without `workflow` scope）。
+	if ($SkipWorkflowFiles) {
+		Write-Host "已跳过 .github/workflows（-SkipWorkflowFiles）" -ForegroundColor Yellow
+	} else {
+		foreach ($wf in $WorkflowFiles) {
+			$dstFile = Join-Path $StagingDir $wf
+			New-Item -ItemType Directory -Path (Split-Path -Parent $dstFile) -Force | Out-Null
+			Copy-Item -LiteralPath (Join-Path $root $wf) -Destination $dstFile -Force
+		}
 	}
 
 	# ------------------------------------------------------------ 3) 校验
@@ -167,7 +191,7 @@ try {
 
 	$gitAttrs = (Invoke-Cmd git @("ls-files") -Quiet).Lines
 	if (-not ($gitAttrs -contains "package.json")) { Fail "package.json 未进入暂存区" }
-	if (-not ($gitAttrs | Where-Object { $_ -match '^\.github/workflows/pages\.yml$' })) { Fail "pages.yml 未进入暂存区" }
+	if (-not $SkipWorkflowFiles -and -not ($gitAttrs | Where-Object { $_ -match '^\.github/workflows/pages\.yml$' })) { Fail "pages.yml 未进入暂存区" }
 
 	# 扫一遍源码里有没有疑似真 token（防手滑）
 	$leak = @()
@@ -206,7 +230,31 @@ try {
 	# token 仅存在于本进程内存与这条 git 命令的 -c 参数中，不落盘
 	$pushArgs = @("-c", "http.https://github.com/.extraheader=$header", "push", $url, "HEAD:refs/heads/$Branch")
 	$push = Invoke-Cmd git $pushArgs
-	if ($push.Code -ne 0) { Fail "git push 失败（token 权限 / 远端有新提交需要重跑一次）" }
+	if ($push.Code -ne 0) {
+		$scopeBlocked = @($push.Lines | Select-String -Pattern 'without .?workflow.? scope|refusing to allow' -CaseSensitive:$false).Count -gt 0
+		if (-not $scopeBlocked) { Fail "git push 失败（token 权限 / 远端有新提交，重跑一次即可）" }
+
+		Write-Host ""
+		Write-Host "当前 token 缺少 workflow scope，GitHub 拒绝推送 .github/workflows/*。" -ForegroundColor Yellow
+		Write-Host "先推源码（不含工作流），再按提示补工作流。" -ForegroundColor Yellow
+		$wfDir = Join-Path $StagingDir ".github\workflows"
+		if (Test-Path $wfDir) { Remove-Item -LiteralPath $wfDir -Recurse -Force }
+		if ((Invoke-Cmd git @("add", "-A") -Quiet).Code -ne 0) { Fail "git add 失败" }
+		# 改写刚才的 tip（不是追加提交），保证要推送的历史里根本不出现 workflow 路径
+		$amend = Invoke-Cmd git ($ident + @("commit", "--amend", "-m", "chore: sync source (CI workflow excluded: PAT lacks workflow scope)"))
+		if ($amend.Code -ne 0) { Write-Host "（无可 amend 的提交，直接重试推送）" -ForegroundColor DarkGray }
+		$headSha = (Invoke-Cmd git @("rev-parse", "--short", "HEAD") -Quiet).Lines -join ""
+		$push = Invoke-Cmd git $pushArgs
+		if ($push.Code -ne 0) { Fail "去掉工作流后 push 仍然失败（token 权限 / 远端有新提交，重跑一次即可）" }
+
+		Step "完成（源码已推送，工作流待补）"
+		Write-Host "已推送 $Branch：https://github.com/$Repo（commit $headSha）" -ForegroundColor Green
+		Write-Host "⚠ .github/workflows/pages.yml 没有上传成功，补法任选其一：" -ForegroundColor Yellow
+		Write-Host "   A) 换有 workflow scope 的 classic PAT，重跑本脚本" -ForegroundColor Yellow
+		Write-Host "   B) GitHub 网页 → Actions → New workflow（或直链）粘贴本机 .github\workflows\pages.yml 后 Commit" -ForegroundColor Yellow
+		Write-Host "   直链：https://github.com/$Repo/new/$Branch/.github/workflows/pages.yml" -ForegroundColor DarkGray
+		return
+	}
 
 	Step "完成"
 	Write-Host "已推送 $Branch：https://github.com/$Repo（commit $headSha）" -ForegroundColor Green

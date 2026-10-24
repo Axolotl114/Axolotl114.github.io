@@ -3,8 +3,20 @@ import ArchivePanel from "@components/controls/ArchivePanel.astro";
 import I18nKey from "@i18n/i18nKey";
 import { i18n } from "@i18n/translation";
 import MainGridLayout from "@layouts/MainGridLayout.astro";
+import { getPostListing } from "@utils/content-utils";
+
+// 空集合兼容：没有任何文章时不再渲染归档面板，直接显示模板的「暂无数据」空状态
+const posts = await getPostListing();
 ---
 
 <MainGridLayout title={i18n(I18nKey.archive)}>
-  <ArchivePanel />
+  {
+    posts.length === 0 ? (
+      <div class="card-base px-8 py-12 text-center">
+        <p class="text-30">{i18n(I18nKey.noData)}</p>
+      </div>
+    ) : (
+      <ArchivePanel />
+    )
+  }
 </MainGridLayout>

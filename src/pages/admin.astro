@@ -1,0 +1,1322 @@
+---
+// 私有写作后台：/admin/
+// - GitHub PAT 登录（仅 Axolotl114 账号可通过）
+// - 列出 / 载入 / 新建 / 编辑 src/content/posts/*.md
+// - 发布到 main 分支，由 GitHub Actions 构建 gh-pages
+// - noindex、不进导航、data-pagefind-ignore
+import Layout from "@/layouts/Layout.astro";
+---
+
+<Layout title="写作后台 · Axolotl_114's Blog" description="Private writing dashboard">
+	<Fragment slot="head">
+		<meta name="robots" content="noindex, nofollow, noarchive" />
+		<meta name="referrer" content="no-referrer" />
+	</Fragment>
+
+	<main id="admin-app" class="admin-shell" data-pagefind-ignore>
+		<header class="admin-head">
+			<div>
+				<p class="admin-kicker">PRIVATE WORKSPACE</p>
+				<h1 class="admin-title">写作后台</h1>
+				<p class="admin-sub">Markdown → <code>main</code> → GitHub Actions → gh-pages</p>
+			</div>
+			<div class="admin-head-actions">
+				<span id="admin-status" class="admin-status" role="status" aria-live="polite">未登录</span>
+				<button id="admin-logout" class="admin-btn admin-btn--ghost" type="button" hidden>退出登录</button>
+			</div>
+		</header>
+
+		<!-- 登录：GitHub PAT -->
+		<section id="admin-login" class="admin-card admin-login" aria-labelledby="admin-login-title">
+			<h2 id="admin-login-title" class="admin-section-title">GitHub 登录</h2>
+			<p class="admin-note">
+				使用 GitHub Personal Access Token（classic 或 fine-grained）。fine-grained token 需要
+				<strong>Repository permissions → Contents: Read and write</strong>，并授权
+				<code>Axolotl114/Axolotl114.github.io</code>。只有 <code>Axolotl114</code> 账号的 token 会被放行。
+			</p>
+			<form id="admin-login-form" class="admin-login-form" autocomplete="off">
+				<label class="admin-label" for="admin-token">Personal Access Token</label>
+				<input
+					id="admin-token"
+					class="admin-input"
+					type="password"
+					name="token"
+					placeholder="ghp_… / github_pat_…"
+					autocomplete="off"
+					spellcheck="false"
+					required
+				/>
+				<label class="admin-check">
+					<input id="admin-remember" type="checkbox" />
+					<span>在这台设备记住 Token（存 localStorage，有 XSS / 共用设备泄漏风险，仅限私人电脑）</span>
+				</label>
+				<div class="admin-login-actions">
+					<button id="admin-login-btn" class="admin-btn admin-btn--primary" type="submit">验证并登录</button>
+					<a
+						class="admin-link"
+						href="https://github.com/settings/tokens"
+						target="_blank"
+						rel="noopener noreferrer">创建 Token ↗</a
+					>
+				</div>
+				<p id="admin-login-error" class="admin-error" role="alert" hidden></p>
+			</form>
+		</section>
+
+		<!-- 工作区 -->
+		<section id="admin-workspace" class="admin-workspace" hidden>
+			<div class="admin-toolbar">
+				<div class="admin-toolbar-left">
+					<button id="admin-new" class="admin-btn admin-btn--primary" type="button">新建文章</button>
+					<button id="admin-refresh" class="admin-btn" type="button">刷新列表</button>
+					<span id="admin-message" class="admin-message" role="status" aria-live="polite"></span>
+				</div>
+				<p class="admin-contract">
+					repo <code>Axolotl114/Axolotl114.github.io</code> · branch <code>main</code> · path
+					<code>src/content/posts/&lt;slug&gt;.md</code>
+				</p>
+			</div>
+
+			<div class="admin-grid">
+				<!-- 文章列表 -->
+				<aside class="admin-card admin-list-wrap" aria-labelledby="admin-list-title">
+					<div class="admin-card-head">
+						<h2 id="admin-list-title" class="admin-section-title">文章列表</h2>
+						<span id="admin-list-count" class="admin-count"></span>
+					</div>
+					<div id="admin-list" class="admin-list" role="list"></div>
+				</aside>
+
+				<!-- 编辑器 -->
+				<section class="admin-card admin-editor" aria-labelledby="admin-editor-title">
+					<div class="admin-card-head">
+						<h2 id="admin-editor-title" class="admin-section-title">编辑</h2>
+						<span id="admin-editor-state" class="admin-count">新文章</span>
+					</div>
+
+					<div class="admin-fields">
+						<div class="admin-field admin-field--wide">
+							<label class="admin-label" for="field-title">标题</label>
+							<input id="field-title" class="admin-input" type="text" placeholder="文章标题" />
+						</div>
+						<div class="admin-field">
+							<label class="admin-label" for="field-slug">Slug（文件名）</label>
+							<input
+								id="field-slug"
+								class="admin-input"
+								type="text"
+								placeholder="my-first-post"
+								pattern="[A-Za-z0-9_-]+"
+							/>
+						</div>
+						<div class="admin-field">
+							<label class="admin-label" for="field-published">发布日期</label>
+							<input id="field-published" class="admin-input" type="date" />
+						</div>
+						<div class="admin-field">
+							<label class="admin-label" for="field-category">分类</label>
+							<input id="field-category" class="admin-input" type="text" placeholder="随笔" />
+						</div>
+						<div class="admin-field">
+							<label class="admin-label" for="field-tags">标签（逗号分隔）</label>
+							<input id="field-tags" class="admin-input" type="text" placeholder="动画, 游戏, 前端" />
+						</div>
+						<div class="admin-field admin-field--wide">
+							<label class="admin-label" for="field-description">描述</label>
+							<input
+								id="field-description"
+								class="admin-input"
+								type="text"
+								placeholder="一句话摘要（用于列表与 SEO）"
+							/>
+						</div>
+					</div>
+
+					<div class="admin-editor-body">
+						<label class="admin-label" for="field-body">正文（Markdown）</label>
+						<textarea
+							id="field-body"
+							class="admin-textarea"
+							rows="18"
+							spellcheck="false"
+							placeholder={"## 小标题\n\n正文…"}
+						></textarea>
+						<div class="admin-editor-meta">
+							<span id="admin-body-count">0 字符</span>
+							<span id="admin-path-hint">src/content/posts/&lt;slug&gt;.md</span>
+						</div>
+					</div>
+
+					<div class="admin-editor-actions">
+						<button id="admin-publish" class="admin-btn admin-btn--primary" type="button">
+							提交到 main
+						</button>
+						<button id="admin-reset" class="admin-btn" type="button">清空 / 新文章</button>
+						<p id="admin-editor-error" class="admin-error" role="alert" hidden></p>
+					</div>
+				</section>
+
+				<!-- 预览 -->
+				<section class="admin-card admin-preview-wrap" aria-labelledby="admin-preview-title">
+					<div class="admin-card-head">
+						<h2 id="admin-preview-title" class="admin-section-title">预览</h2>
+						<span class="admin-count">仅本地渲染，未发布</span>
+					</div>
+					<article id="admin-preview" class="admin-preview custom-md">
+						<p class="admin-note">在左侧输入正文后，这里会实时渲染 Markdown。</p>
+					</article>
+				</section>
+			</div>
+
+			<p class="admin-footnote">
+				发布后由 <code>.github/workflows/pages.yml</code> 构建，约 2–5 分钟上线。查看
+				<a
+					id="admin-actions-link"
+					href="https://github.com/Axolotl114/Axolotl114.github.io/actions"
+					target="_blank"
+					rel="noopener noreferrer">Actions 运行记录 ↗</a
+				>。Token 只保存在当前浏览器，不会写入仓库。
+			</p>
+		</section>
+	</main>
+
+	<script>
+		import { marked } from "marked";
+
+		// ── 固定契约（与 .github/workflows/pages.yml 对齐） ──────────────
+		const OWNER = "Axolotl114";
+		const REPO = `${OWNER}/Axolotl114.github.io`;
+		const BRANCH = "main";
+		const POSTS_DIR = "src/content/posts";
+		const API = "https://api.github.com";
+		const ACTIONS_URL = `https://github.com/${REPO}/actions`;
+		const TOKEN_KEY = "axoAdminToken";
+		const TOKEN_REMEMBER_KEY = "axoAdminTokenRemember";
+
+		// ── 类型 ──────────────────────────────────────────────────────────
+		interface PostFile {
+			name: string;
+			path: string;
+			sha: string;
+			size: number;
+		}
+
+		interface FrontmatterGroup {
+			key: string;
+			lines: string[];
+		}
+
+		interface FormState {
+			sha: string;
+			editingPath: string;
+			groups: FrontmatterGroup[];
+		}
+
+		const state: FormState = {
+			sha: "",
+			editingPath: "",
+			groups: [],
+		};
+
+		// ── 小工具 ───────────────────────────────────────────────────────
+		function byId<T extends HTMLElement>(id: string): T {
+			return document.getElementById(id) as T;
+		}
+
+		const els = {
+			login: byId("admin-login"),
+			loginForm: byId<HTMLFormElement>("admin-login-form"),
+			token: byId<HTMLInputElement>("admin-token"),
+			remember: byId<HTMLInputElement>("admin-remember"),
+			loginBtn: byId<HTMLButtonElement>("admin-login-btn"),
+			loginError: byId("admin-login-error"),
+			status: byId("admin-status"),
+			logout: byId<HTMLButtonElement>("admin-logout"),
+			workspace: byId("admin-workspace"),
+			list: byId("admin-list"),
+			listCount: byId("admin-list-count"),
+			refresh: byId<HTMLButtonElement>("admin-refresh"),
+			newPost: byId<HTMLButtonElement>("admin-new"),
+			message: byId("admin-message"),
+			editorState: byId("admin-editor-state"),
+			title: byId<HTMLInputElement>("field-title"),
+			slug: byId<HTMLInputElement>("field-slug"),
+			published: byId<HTMLInputElement>("field-published"),
+			category: byId<HTMLInputElement>("field-category"),
+			tags: byId<HTMLInputElement>("field-tags"),
+			description: byId<HTMLInputElement>("field-description"),
+			body: byId<HTMLTextAreaElement>("field-body"),
+			bodyCount: byId("admin-body-count"),
+			pathHint: byId("admin-path-hint"),
+			publish: byId<HTMLButtonElement>("admin-publish"),
+			reset: byId<HTMLButtonElement>("admin-reset"),
+			editorError: byId("admin-editor-error"),
+			preview: byId("admin-preview"),
+		};
+
+		let token = "";
+
+		function setStatus(text: string, tone: "idle" | "ok" | "warn" = "idle"): void {
+			els.status.textContent = text;
+			els.status.dataset.tone = tone;
+		}
+
+		function showLoginError(text: string): void {
+			els.loginError.textContent = text;
+			els.loginError.hidden = !text;
+		}
+
+		function showEditorError(text: string): void {
+			els.editorError.textContent = text;
+			els.editorError.hidden = !text;
+		}
+
+		function showMessage(text: string, tone: "info" | "ok" | "error" = "info"): void {
+			els.message.textContent = text;
+			els.message.dataset.tone = tone;
+		}
+
+		function todayIso(): string {
+			const now = new Date();
+			const y = now.getFullYear();
+			const m = String(now.getMonth() + 1).padStart(2, "0");
+			const d = String(now.getDate()).padStart(2, "0");
+			return `${y}-${m}-${d}`;
+		}
+
+		function base64Encode(text: string): string {
+			const bytes = new TextEncoder().encode(text);
+			let binary = "";
+			const chunk = 0x8000;
+			for (let i = 0; i < bytes.length; i += chunk) {
+				binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+			}
+			return btoa(binary);
+		}
+
+		function base64Decode(encoded: string): string {
+			const binary = atob(encoded.replace(/\s/g, ""));
+			const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+			return new TextDecoder().decode(bytes);
+		}
+
+		// ── GitHub API ───────────────────────────────────────────────────
+		function describeStatus(status: number, fallback: string): string {
+			switch (status) {
+				case 401:
+					return "401：Token 无效或已过期，请重新登录。";
+				case 403:
+					return "403：权限不足或触发 GitHub 限流。请确认 Token 有 Contents: Read and write 权限。";
+				case 404:
+					return "404：仓库、分支或文件不存在。请确认仓库 Axolotl114/Axolotl114.github.io 与 main 分支存在。";
+				case 409:
+					return "409：文件冲突（远端已被更新），请刷新列表后重新载入再发布。";
+				case 422:
+					return "422：提交内容未通过 GitHub 校验，请检查 slug / 正文。";
+				case 429:
+					return "429：请求过于频繁，请稍后再试。";
+				default:
+					return `${status}：${fallback}`;
+			}
+		}
+
+		async function github(
+			path: string,
+			init: RequestInit = {},
+		): Promise<{ response: Response; data: unknown }> {
+			const response = await fetch(`${API}${path}`, {
+				...init,
+				headers: {
+					Accept: "application/vnd.github+json",
+					Authorization: `Bearer ${token}`,
+					"X-GitHub-Api-Version": "2022-11-28",
+					...(init.headers ?? {}),
+				},
+			});
+			const text = await response.text();
+			let data: unknown = null;
+			try {
+				data = text ? JSON.parse(text) : null;
+			} catch {
+				data = null;
+			}
+			return { response, data };
+		}
+
+		async function readErrorMessage(
+			response: Response,
+			data: unknown,
+		): Promise<string> {
+			const message =
+				data && typeof data === "object" && "message" in data
+					? String((data as { message?: unknown }).message ?? "")
+					: response.statusText;
+			return describeStatus(response.status, message || "GitHub 请求失败");
+		}
+
+		async function verifyToken(candidate: string): Promise<string | null> {
+			const response = await fetch(`${API}/user`, {
+				headers: {
+					Accept: "application/vnd.github+json",
+					Authorization: `Bearer ${candidate}`,
+					"X-GitHub-Api-Version": "2022-11-28",
+				},
+			});
+			if (!response.ok) {
+				throw new Error(
+					describeStatus(response.status, "无法验证 Token"),
+				);
+			}
+			const user = (await response.json()) as { login?: string };
+			const login = String(user.login ?? "");
+			if (login.toLowerCase() !== OWNER.toLowerCase()) {
+				throw new Error(
+					`该 Token 属于「${login || "未知账号"}」，只有 ${OWNER} 的 Token 可以进入后台。`,
+				);
+			}
+			return login;
+		}
+
+		// ── 登录 / 登出 ─────────────────────────────────────────────────
+		function enterWorkspace(login: string): void {
+			els.login.hidden = true;
+			els.workspace.hidden = false;
+			els.logout.hidden = false;
+			setStatus(`已登录：${login}`, "ok");
+			showEditorError("");
+			loadList();
+		}
+
+		function leaveWorkspace(): void {
+			token = "";
+			sessionStorage.removeItem(TOKEN_KEY);
+			localStorage.removeItem(TOKEN_REMEMBER_KEY);
+			els.workspace.hidden = true;
+			els.login.hidden = false;
+			els.logout.hidden = true;
+			els.loginForm.reset();
+			showLoginError("");
+			setStatus("未登录", "idle");
+		}
+
+		async function handleLogin(event: SubmitEvent): Promise<void> {
+			event.preventDefault();
+			const candidate = els.token.value.trim();
+			if (!candidate) return;
+			showLoginError("");
+			els.loginBtn.disabled = true;
+			els.loginBtn.textContent = "验证中…";
+			try {
+				const login = await verifyToken(candidate);
+				token = candidate;
+				if (els.remember.checked) {
+					localStorage.setItem(TOKEN_REMEMBER_KEY, candidate);
+					sessionStorage.removeItem(TOKEN_KEY);
+				} else {
+					sessionStorage.setItem(TOKEN_KEY, candidate);
+					localStorage.removeItem(TOKEN_REMEMBER_KEY);
+				}
+				if (login) enterWorkspace(login);
+			} catch (error) {
+				showLoginError(
+					error instanceof Error ? error.message : "登录失败，请检查网络。",
+				);
+			} finally {
+				els.loginBtn.disabled = false;
+				els.loginBtn.textContent = "验证并登录";
+			}
+		}
+
+		async function restoreSession(): Promise<void> {
+			const saved =
+				sessionStorage.getItem(TOKEN_KEY) ??
+				localStorage.getItem(TOKEN_REMEMBER_KEY) ??
+				"";
+			if (!saved) return;
+			try {
+				const login = await verifyToken(saved);
+				token = saved;
+				if (login) enterWorkspace(login);
+			} catch {
+				sessionStorage.removeItem(TOKEN_KEY);
+				localStorage.removeItem(TOKEN_REMEMBER_KEY);
+				setStatus("登录已失效，请重新登录", "warn");
+			}
+		}
+
+		// ── 文章列表 ────────────────────────────────────────────────────
+		function renderList(files: PostFile[]): void {
+			els.list.innerHTML = "";
+			els.listCount.textContent = files.length ? String(files.length) : "";
+			if (files.length === 0) {
+				const empty = document.createElement("p");
+				empty.className = "admin-note";
+				empty.textContent = "src/content/posts 下还没有 .md 文件。";
+				els.list.appendChild(empty);
+				return;
+			}
+			const fragment = document.createDocumentFragment();
+			for (const file of files) {
+				const button = document.createElement("button");
+				button.type = "button";
+				button.className = "admin-list-item";
+				button.setAttribute("role", "listitem");
+				button.dataset.path = file.path;
+				button.dataset.sha = file.sha;
+				const name = document.createElement("span");
+				name.className = "admin-list-name";
+				name.textContent = file.name;
+				const size = document.createElement("span");
+				size.className = "admin-list-size";
+				size.textContent = `${Math.max(1, Math.round(file.size / 1024))} KB`;
+				button.append(name, size);
+				button.addEventListener("click", () => {
+					for (const item of els.list.querySelectorAll(
+						".admin-list-item",
+					)) {
+						item.classList.remove("is-active");
+					}
+					button.classList.add("is-active");
+					void openPost(file);
+				});
+				fragment.appendChild(button);
+			}
+			els.list.appendChild(fragment);
+		}
+
+		async function loadList(): Promise<void> {
+			showMessage("正在读取文章列表…");
+			els.refresh.disabled = true;
+			try {
+				const { response, data } = await github(
+					`/repos/${REPO}/contents/${POSTS_DIR}?ref=${BRANCH}`,
+				);
+				if (!response.ok) {
+					showMessage(await readErrorMessage(response, data), "error");
+					return;
+				}
+				const entries = Array.isArray(data) ? data : [];
+				const files: PostFile[] = entries
+					.filter(
+						(entry): entry is { name: string; path: string; sha: string; size: number; type: string } =>
+							typeof entry === "object" &&
+							entry !== null &&
+							"type" in entry &&
+							(entry as { type?: string }).type === "file" &&
+							/\.mdx?$/i.test(String((entry as { name?: string }).name ?? "")),
+					)
+					.map((entry) => ({
+						name: entry.name,
+						path: entry.path,
+						sha: entry.sha,
+						size: Number(entry.size ?? 0),
+					}))
+					.sort((a, b) => a.name.localeCompare(b.name));
+				renderList(files);
+				showMessage(`已载入 ${files.length} 篇文章`, "ok");
+			} catch (error) {
+				showMessage(
+					error instanceof Error ? error.message : "读取列表失败",
+					"error",
+				);
+			} finally {
+				els.refresh.disabled = false;
+			}
+		}
+
+		// ── Frontmatter 解析 / 序列化（保留未知字段） ───────────────────
+		function splitFrontmatter(source: string): {
+			groups: FrontmatterGroup[];
+			body: string;
+		} {
+			const match = /^\uFEFF?---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(source);
+			if (!match) return { groups: [], body: source.trim() };
+			const groups: FrontmatterGroup[] = [];
+			let current: FrontmatterGroup | null = null;
+			for (const line of match[1].split(/\r?\n/)) {
+				const keyMatch = /^([A-Za-z0-9_-]+):(.*)$/.exec(line);
+				if (keyMatch) {
+					current = { key: keyMatch[1], lines: [line] };
+					groups.push(current);
+				} else if (current) {
+					current.lines.push(line);
+				}
+			}
+			return { groups, body: source.slice(match[0].length).trim() };
+		}
+
+		function unquote(value: string): string {
+			let text = value.trim();
+			if (
+				(text.startsWith('"') && text.endsWith('"')) ||
+				(text.startsWith("'") && text.endsWith("'"))
+			) {
+				text = text.slice(1, -1);
+			}
+			if (text.startsWith('"') || text.startsWith("'")) {
+				try {
+					return JSON.parse(
+						text.startsWith("'")
+							? `"${text.slice(1, text.lastIndexOf("'")).replace(/"/g, '\\"')}"`
+							: text,
+					) as string;
+				} catch {
+					return text.replace(/^['"]|['"]$/g, "");
+				}
+			}
+			return text;
+		}
+
+		function readScalar(
+			groups: FrontmatterGroup[],
+			key: string,
+		): string {
+			const group = groups.find((item) => item.key === key);
+			if (!group) return "";
+			const raw = group.lines[0].slice(group.lines[0].indexOf(":") + 1).trim();
+			return unquote(raw);
+		}
+
+		function readList(groups: FrontmatterGroup[], key: string): string[] {
+			const group = groups.find((item) => item.key === key);
+			if (!group) return [];
+			const header = group.lines[0].slice(group.lines[0].indexOf(":") + 1).trim();
+			if (header.startsWith("[")) {
+				return header
+					.replace(/^\[|\]$/g, "")
+					.split(",")
+					.map((part) => unquote(part))
+					.filter(Boolean);
+			}
+			const items: string[] = [];
+			for (const line of group.lines.slice(1)) {
+				const match = /^\s*-\s+(.*)$/.exec(line);
+				if (match) items.push(unquote(match[1]));
+			}
+			return items;
+		}
+
+		function yamlScalar(value: string): string {
+			const trimmed = value.trim();
+			if (!trimmed) return '""';
+			if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+			if (/^[A-Za-z0-9._/-]+$/.test(trimmed)) return trimmed;
+			return JSON.stringify(trimmed);
+		}
+
+		function buildSource(): string {
+			const known = new Set(["title", "published", "description", "category", "tags"]);
+			const tags = els.tags.value
+				.split(/[,，]/)
+				.map((item) => item.trim())
+				.filter(Boolean);
+			const lines: string[] = [];
+			lines.push(`title: ${yamlScalar(els.title.value)}`);
+			lines.push(`published: ${yamlScalar(els.published.value || todayIso())}`);
+			const description = els.description.value.trim();
+			if (description) lines.push(`description: ${yamlScalar(description)}`);
+			const category = els.category.value.trim();
+			if (category) lines.push(`category: ${yamlScalar(category)}`);
+			if (tags.length > 0) {
+				lines.push("tags:");
+				for (const tag of tags) lines.push(`  - ${yamlScalar(tag)}`);
+			}
+			for (const group of state.groups) {
+				if (known.has(group.key)) continue;
+				lines.push(...group.lines);
+			}
+			return `---\n${lines.join("\n")}\n---\n\n${els.body.value.trim()}\n`;
+		}
+
+		function applyGroups(groups: FrontmatterGroup[]): void {
+			state.groups = groups;
+			els.title.value = readScalar(groups, "title");
+			els.published.value =
+				readScalar(groups, "published") || todayIso();
+			els.description.value = readScalar(groups, "description");
+			els.category.value = readScalar(groups, "category");
+			els.tags.value = readList(groups, "tags").join(", ");
+		}
+
+		// ── 编辑器状态 ──────────────────────────────────────────────────
+		function updatePathHint(): void {
+			const slug = els.slug.value.trim() || "<slug>";
+			els.pathHint.textContent = `${POSTS_DIR}/${slug}.md`;
+		}
+
+		function resetEditor(): void {
+			state.sha = "";
+			state.editingPath = "";
+			state.groups = [];
+			els.title.value = "";
+			els.slug.value = "";
+			els.published.value = todayIso();
+			els.category.value = "";
+			els.tags.value = "";
+			els.description.value = "";
+			els.body.value = "";
+			els.editorState.textContent = "新文章";
+			showEditorError("");
+			updatePathHint();
+			renderPreview();
+			for (const item of els.list.querySelectorAll(".admin-list-item")) {
+				item.classList.remove("is-active");
+			}
+		}
+
+		async function openPost(file: PostFile): Promise<void> {
+			showEditorError("");
+			showMessage(`正在载入 ${file.name}…`);
+			try {
+				const { response, data } = await github(
+					`/repos/${REPO}/contents/${file.path}?ref=${BRANCH}`,
+				);
+				if (!response.ok) {
+					showMessage(await readErrorMessage(response, data), "error");
+					return;
+				}
+				const payload = (data ?? {}) as {
+					sha?: string;
+					content?: string;
+					path?: string;
+					name?: string;
+				};
+				if (!payload.content) {
+					showMessage("该文件没有可编辑内容（可能是子目录或超过 1MB）。", "error");
+					return;
+				}
+				const source = base64Decode(payload.content);
+				const { groups, body } = splitFrontmatter(source);
+				state.sha = payload.sha ?? file.sha;
+				state.editingPath = payload.path ?? file.path;
+				applyGroups(groups);
+				els.slug.value = (payload.name ?? file.name).replace(/\.mdx?$/i, "");
+				els.body.value = body;
+				els.editorState.textContent = `编辑中：${(payload.name ?? file.name)}`;
+				showMessage(`已载入 ${payload.name ?? file.name}`, "ok");
+				updatePathHint();
+				renderPreview();
+			} catch (error) {
+				showMessage(
+					error instanceof Error ? error.message : "载入文件失败",
+					"error",
+				);
+			}
+		}
+
+		// ── 预览（本地渲染 + 基础 XSS 清洗） ────────────────────────────
+		function sanitizeHtml(html: string): string {
+			const doc = new DOMParser().parseFromString(html, "text/html");
+			doc
+				.querySelectorAll(
+					"script,iframe,object,embed,style,link,meta,form,input,button,textarea,select,base",
+				)
+				.forEach((node) => node.remove());
+			doc.querySelectorAll("*").forEach((node) => {
+				for (const attribute of Array.from(node.attributes)) {
+					const name = attribute.name.toLowerCase();
+					const value = attribute.value.trim().toLowerCase();
+					if (name.startsWith("on")) {
+						node.removeAttribute(attribute.name);
+					} else if (
+						(name === "href" || name === "src" || name === "xlink:href") &&
+						value.startsWith("javascript:")
+					) {
+						node.removeAttribute(attribute.name);
+					}
+				}
+			});
+			return doc.body.innerHTML;
+		}
+
+		function renderPreview(): void {
+			const markdown = els.body.value;
+			if (!markdown.trim()) {
+				els.preview.innerHTML =
+					'<p class="admin-note">在左侧输入正文后，这里会实时渲染 Markdown。</p>';
+				return;
+			}
+			try {
+				const html = marked.parse(markdown, {
+					gfm: true,
+					breaks: false,
+					async: false,
+				}) as string;
+				els.preview.innerHTML = sanitizeHtml(html);
+			} catch {
+				els.preview.textContent = "Markdown 解析失败，请检查语法。";
+			}
+		}
+
+		// ── 发布 ────────────────────────────────────────────────────────
+		function validate(): string | null {
+			const title = els.title.value.trim();
+			if (!title) return "请填写标题。";
+			const slug = els.slug.value.trim();
+			if (!slug) return "请填写 slug（文件名）。";
+			if (!/^[A-Za-z0-9_-]+$/.test(slug)) {
+				return "slug 只能包含字母、数字、下划线与连字符。";
+			}
+			if (!els.body.value.trim()) return "正文不能为空。";
+			return null;
+		}
+
+		async function resolveSha(path: string): Promise<string> {
+			if (state.sha && state.editingPath === path) return state.sha;
+			const { response, data } = await github(
+				`/repos/${REPO}/contents/${path}?ref=${BRANCH}`,
+			);
+			if (response.ok) {
+				return String((data as { sha?: string } | null)?.sha ?? "");
+			}
+			if (response.status === 404) return "";
+			throw new Error(await readErrorMessage(response, data));
+		}
+
+		async function publish(): Promise<void> {
+			const problem = validate();
+			if (problem) {
+				showEditorError(problem);
+				els.title.focus();
+				return;
+			}
+			showEditorError("");
+			const slug = els.slug.value.trim();
+			const path = `${POSTS_DIR}/${slug}.md`;
+			els.publish.disabled = true;
+			els.publish.textContent = "提交中…";
+			try {
+				const sha = await resolveSha(path);
+				const body = {
+					message: `post: ${slug}`,
+					content: base64Encode(buildSource()),
+					branch: BRANCH,
+					...(sha ? { sha } : {}),
+				};
+				const { response, data } = await github(
+					`/repos/${REPO}/contents/${path}`,
+					{
+						method: "PUT",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify(body),
+					},
+				);
+				if (!response.ok) {
+					showEditorError(await readErrorMessage(response, data));
+					return;
+				}
+				const payload = (data ?? {}) as {
+					content?: { sha?: string; path?: string };
+				};
+				state.sha = payload.content?.sha ?? sha;
+				state.editingPath = payload.content?.path ?? path;
+				els.editorState.textContent = `已发布：${slug}.md`;
+				showMessage(
+					"已提交到 main：GitHub Actions 正在构建，约 2–5 分钟上线。",
+					"ok",
+				);
+				showEditorError("");
+				loadList();
+			} catch (error) {
+				showEditorError(
+					error instanceof Error ? error.message : "发布失败，请重试。",
+				);
+			} finally {
+				els.publish.disabled = false;
+				els.publish.textContent = "提交到 main";
+			}
+		}
+
+		// ── 事件绑定 ────────────────────────────────────────────────────
+		els.loginForm.addEventListener("submit", (event) => {
+			void handleLogin(event);
+		});
+		els.logout.addEventListener("click", () => leaveWorkspace());
+		els.refresh.addEventListener("click", () => void loadList());
+		els.newPost.addEventListener("click", () => resetEditor());
+		els.reset.addEventListener("click", () => resetEditor());
+		els.publish.addEventListener("click", () => void publish());
+		els.slug.addEventListener("input", updatePathHint);
+		els.body.addEventListener("input", () => {
+			els.bodyCount.textContent = `${els.body.value.length} 字符`;
+			renderPreview();
+		});
+		byId<HTMLAnchorElement>("admin-actions-link").href = ACTIONS_URL;
+
+		resetEditor();
+		void restoreSession();
+	</script>
+
+	<style is:global>
+		.admin-shell {
+			max-width: 110rem;
+			margin: 0 auto;
+			padding: 2rem 1.25rem 4rem;
+			color: var(--axo-ink);
+			font-family: var(--font-body);
+		}
+
+		.admin-head {
+			display: flex;
+			align-items: flex-end;
+			justify-content: space-between;
+			gap: 1rem;
+			flex-wrap: wrap;
+			margin-bottom: 1.5rem;
+		}
+
+		.admin-kicker {
+			margin: 0 0 0.35rem;
+			color: var(--axo-ink-soft);
+			font-size: 0.62rem;
+			font-weight: 600;
+			letter-spacing: 0.22em;
+			text-transform: uppercase;
+		}
+
+		.admin-title {
+			margin: 0;
+			font-family: var(--font-title);
+			font-size: clamp(1.8rem, 3.4vw, 2.6rem);
+			font-weight: 500;
+			letter-spacing: 0.08em;
+		}
+
+		.admin-sub {
+			margin: 0.4rem 0 0;
+			color: var(--axo-ink-soft);
+			font-size: 0.8rem;
+			letter-spacing: 0.02em;
+		}
+
+		.admin-head-actions {
+			display: flex;
+			align-items: center;
+			gap: 0.75rem;
+		}
+
+		.admin-status {
+			padding: 0.35rem 0.7rem;
+			border: 1px solid var(--line-divider);
+			border-radius: 999px;
+			background: color-mix(in srgb, var(--card-bg) 82%, transparent);
+			color: var(--axo-ink-soft);
+			font-size: 0.75rem;
+		}
+
+		.admin-status[data-tone="ok"] {
+			color: var(--primary);
+			border-color: color-mix(in srgb, var(--primary) 45%, transparent);
+		}
+
+		.admin-status[data-tone="warn"] {
+			color: #b45309;
+		}
+
+		.admin-card {
+			border: 1px solid var(--line-divider);
+			border-radius: 1rem;
+			background: color-mix(in srgb, var(--card-bg) 90%, transparent);
+			box-shadow: 0 18px 40px -34px rgb(21 55 76 / 0.35);
+			padding: 1rem 1.1rem;
+		}
+
+		.admin-login {
+			max-width: 44rem;
+			margin: 0 auto 1rem;
+		}
+
+		.admin-section-title {
+			margin: 0;
+			font-family: var(--font-title);
+			font-size: 1.05rem;
+			font-weight: 600;
+			letter-spacing: 0.03em;
+		}
+
+		.admin-note {
+			margin: 0.55rem 0 0.9rem;
+			color: var(--axo-ink-soft);
+			font-size: 0.82rem;
+			line-height: 1.7;
+		}
+
+		.admin-note code,
+		.admin-sub code,
+		.admin-contract code,
+		.admin-footnote code {
+			font-family: var(--font-code, monospace);
+			font-size: 0.78em;
+			padding: 0.1em 0.35em;
+			border-radius: 0.25rem;
+			background: color-mix(in srgb, var(--btn-regular-bg) 70%, transparent);
+		}
+
+		.admin-label {
+			display: block;
+			margin-bottom: 0.35rem;
+			color: var(--axo-ink-soft);
+			font-size: 0.72rem;
+			font-weight: 600;
+			letter-spacing: 0.06em;
+			text-transform: uppercase;
+		}
+
+		.admin-input,
+		.admin-textarea {
+			width: 100%;
+			box-sizing: border-box;
+			padding: 0.55rem 0.7rem;
+			border: 1px solid var(--line-color);
+			border-radius: 0.6rem;
+			background: color-mix(in srgb, var(--card-bg) 88%, transparent);
+			color: var(--axo-ink);
+			font-family: var(--font-body);
+			font-size: 0.85rem;
+			line-height: 1.6;
+			transition: border-color 0.2s ease, box-shadow 0.2s ease;
+		}
+
+		.admin-input:focus-visible,
+		.admin-textarea:focus-visible {
+			outline: none;
+			border-color: var(--primary);
+			box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 22%, transparent);
+		}
+
+		.admin-textarea {
+			resize: vertical;
+			min-height: 22rem;
+			font-family: var(--font-code, ui-monospace, monospace);
+			font-size: 0.82rem;
+			tab-size: 2;
+		}
+
+		.admin-login-form {
+			display: grid;
+			gap: 0.75rem;
+		}
+
+		.admin-check {
+			display: flex;
+			gap: 0.55rem;
+			align-items: flex-start;
+			color: var(--axo-ink-soft);
+			font-size: 0.76rem;
+			line-height: 1.6;
+		}
+
+		.admin-check input {
+			margin-top: 0.2rem;
+		}
+
+		.admin-login-actions,
+		.admin-toolbar-left,
+		.admin-editor-actions {
+			display: flex;
+			align-items: center;
+			gap: 0.65rem;
+			flex-wrap: wrap;
+		}
+
+		.admin-btn {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			min-height: 2.35rem;
+			padding: 0.4rem 0.9rem;
+			border: 1px solid var(--line-color);
+			border-radius: 0.6rem;
+			background: color-mix(in srgb, var(--card-bg) 86%, transparent);
+			color: var(--axo-ink);
+			font-size: 0.8rem;
+			font-weight: 600;
+			cursor: pointer;
+			transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+		}
+
+		.admin-btn:hover {
+			background: color-mix(in srgb, var(--btn-plain-bg-hover) 70%, transparent);
+		}
+
+		.admin-btn:active {
+			transform: scale(0.98);
+		}
+
+		.admin-btn:disabled {
+			opacity: 0.55;
+			cursor: progress;
+		}
+
+		.admin-btn--primary {
+			border-color: color-mix(in srgb, var(--primary) 55%, transparent);
+			background: color-mix(in srgb, var(--primary) 16%, var(--card-bg));
+			color: color-mix(in srgb, var(--primary) 78%, var(--axo-ink));
+		}
+
+		.admin-btn--ghost {
+			background: transparent;
+		}
+
+		.admin-link {
+			color: var(--primary);
+			font-size: 0.78rem;
+			text-decoration: underline;
+			text-underline-offset: 0.2em;
+		}
+
+		.admin-workspace {
+			display: grid;
+			gap: 1rem;
+		}
+
+		.admin-toolbar {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 0.8rem;
+			flex-wrap: wrap;
+		}
+
+		.admin-contract {
+			margin: 0;
+			color: var(--axo-ink-soft);
+			font-size: 0.72rem;
+		}
+
+		.admin-message {
+			color: var(--axo-ink-soft);
+			font-size: 0.78rem;
+		}
+
+		.admin-message[data-tone="ok"] {
+			color: var(--primary);
+		}
+
+		.admin-message[data-tone="error"] {
+			color: #b91c1c;
+		}
+
+		.admin-error {
+			margin: 0.6rem 0 0;
+			padding: 0.55rem 0.7rem;
+			border: 1px solid color-mix(in srgb, #dc2626 40%, transparent);
+			border-radius: 0.5rem;
+			background: color-mix(in srgb, #dc2626 10%, transparent);
+			color: #b91c1c;
+			font-size: 0.8rem;
+			line-height: 1.6;
+		}
+
+		:root.dark .admin-error {
+			color: #fca5a5;
+		}
+
+		.admin-grid {
+			display: grid;
+			grid-template-columns: 15rem minmax(0, 1.15fr) minmax(0, 1fr);
+			gap: 1rem;
+			align-items: start;
+		}
+
+		.admin-list-wrap {
+			position: sticky;
+			top: 1rem;
+			max-height: calc(100vh - 2rem);
+			display: flex;
+			flex-direction: column;
+			overflow: hidden;
+		}
+
+		.admin-card-head {
+			display: flex;
+			align-items: baseline;
+			justify-content: space-between;
+			gap: 0.5rem;
+			margin-bottom: 0.7rem;
+		}
+
+		.admin-count {
+			color: var(--axo-ink-soft);
+			font-size: 0.7rem;
+			font-variant-numeric: tabular-nums;
+		}
+
+		.admin-list {
+			overflow-y: auto;
+			display: grid;
+			gap: 0.25rem;
+			padding-right: 0.2rem;
+		}
+
+		.admin-list-item {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 0.5rem;
+			width: 100%;
+			padding: 0.45rem 0.55rem;
+			border: 1px solid transparent;
+			border-radius: 0.5rem;
+			background: transparent;
+			color: var(--axo-ink);
+			font-size: 0.76rem;
+			text-align: left;
+			cursor: pointer;
+		}
+
+		.admin-list-item:hover {
+			background: color-mix(in srgb, var(--btn-plain-bg-hover) 60%, transparent);
+		}
+
+		.admin-list-item.is-active {
+			border-color: color-mix(in srgb, var(--primary) 45%, transparent);
+			background: color-mix(in srgb, var(--primary) 12%, transparent);
+			color: var(--primary);
+		}
+
+		.admin-list-name {
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+
+		.admin-list-size {
+			color: var(--axo-ink-soft);
+			font-size: 0.65rem;
+			font-variant-numeric: tabular-nums;
+			flex: none;
+		}
+
+		.admin-fields {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 0.7rem;
+			margin-bottom: 0.9rem;
+		}
+
+		.admin-field--wide {
+			grid-column: 1 / -1;
+		}
+
+		.admin-editor-body {
+			display: grid;
+			gap: 0.35rem;
+		}
+
+		.admin-editor-meta {
+			display: flex;
+			justify-content: space-between;
+			gap: 0.75rem;
+			color: var(--axo-ink-soft);
+			font-size: 0.68rem;
+			font-variant-numeric: tabular-nums;
+		}
+
+		.admin-editor-actions {
+			margin-top: 0.9rem;
+		}
+
+		.admin-preview-wrap {
+			min-height: 30rem;
+		}
+
+		.admin-preview {
+			margin: 0;
+			font-size: 0.88rem;
+			line-height: 1.8;
+			overflow-wrap: anywhere;
+		}
+
+		.admin-preview h1,
+		.admin-preview h2,
+		.admin-preview h3 {
+			font-family: var(--font-title);
+			letter-spacing: 0.02em;
+		}
+
+		.admin-preview img {
+			max-width: 100%;
+			border-radius: 0.6rem;
+		}
+
+		.admin-preview pre {
+			overflow-x: auto;
+			padding: 0.8rem;
+			border-radius: 0.6rem;
+			background: var(--codeblock-bg);
+			color: #e6edf3;
+		}
+
+		.admin-preview code {
+			font-family: var(--font-code, monospace);
+			font-size: 0.85em;
+		}
+
+		.admin-preview :not(pre) > code {
+			padding: 0.1em 0.35em;
+			border-radius: 0.25rem;
+			background: var(--inline-code-bg);
+			color: var(--inline-code-color);
+		}
+
+		.admin-preview table {
+			width: 100%;
+			border-collapse: collapse;
+		}
+
+		.admin-preview th,
+		.admin-preview td {
+			padding: 0.4rem 0.55rem;
+			border: 1px solid var(--line-color);
+			text-align: left;
+		}
+
+		.admin-preview blockquote {
+			margin: 0.8rem 0;
+			padding: 0.2rem 0 0.2rem 0.9rem;
+			border-left: 2px solid var(--primary);
+			color: var(--axo-ink-soft);
+		}
+
+		.admin-footnote {
+			color: var(--axo-ink-soft);
+			font-size: 0.74rem;
+			line-height: 1.7;
+			margin: 0;
+		}
+
+		.admin-footnote a {
+			color: var(--primary);
+		}
+
+		@media (max-width: 1279px) {
+			.admin-grid {
+				grid-template-columns: 13rem minmax(0, 1fr);
+			}
+
+			.admin-preview-wrap {
+				grid-column: 1 / -1;
+			}
+		}
+
+		@media (max-width: 900px) {
+			.admin-grid {
+				grid-template-columns: minmax(0, 1fr);
+			}
+
+			.admin-list-wrap {
+				position: static;
+				max-height: 16rem;
+			}
+
+			.admin-preview-wrap {
+				grid-column: auto;
+			}
+
+			.admin-fields {
+				grid-template-columns: minmax(0, 1fr);
+			}
+		}
+	</style>
+</Layout>
