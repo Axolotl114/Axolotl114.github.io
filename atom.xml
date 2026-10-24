@@ -1,20 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
-  <id>https://axo.dpdns.org/</id>
+  <id>https://axolotl114.github.io/</id>
   <title type="text">Axo</title>
   <subtitle type="text">Aozora no madomi</subtitle>
   <updated>2026-10-22T00:00:00.000Z</updated>
   <author><name>Axo</name></author>
-  <link rel="alternate" href="https://axo.dpdns.org/"/>
-  <link rel="self" href="https://axo.dpdns.org/atom.xml"/>
+  <link rel="alternate" href="https://axolotl114.github.io/"/>
+  <link rel="self" href="https://axolotl114.github.io/atom.xml"/>
   <generator uri="https://github.com/CuteLeaf/Firefly">Firefly v6.16.8</generator>
     <entry>
-      <id>https://axo.dpdns.org/posts/emudhra-ca-security-guide/</id>
+      <id>https://axolotl114.github.io/posts/emudhra-ca-security-guide/</id>
       <title type="text">eMudhra 证书事件：浏览器自测与简要处理指南</title>
       <published>2026-10-22T00:00:00.000Z</published>
       <updated>2026-10-22T00:00:00.000Z</updated>
       <author><name>Axo</name></author>
-      <link rel="alternate" href="https://axo.dpdns.org/posts/emudhra-ca-security-guide/"/>
+      <link rel="alternate" href="https://axolotl114.github.io/posts/emudhra-ca-security-guide/"/>
       <summary type="text">遇到 eMudhra 证书检测红色提示时，如何更新、复测并判断结果，附原始检测网站与事件报告。</summary>
       <content type="html"><![CDATA[<p><strong>先更新浏览器和操作系统，重启后再检测；遇到证书警告，不要强行继续访问。</strong> 本文结合 <code>docs/CA.md</code> 中的提醒与公开资料整理，核对日期为 <strong>2026 年 10 月 22 日</strong>。</p>
 <section><h2>发生了什么<a href="#发生了什么"><span>#</span></a></h2><p>CA 证书用于帮助客户端验证网站身份。此次 eMudhra 的 8 个中间 CA 私钥因生成缺陷被恢复，其中 6 个用于 TLS、2 个用于代码签名。Mozilla 的调查指出，受影响的 P-384 私钥取值小于 256，远低于正常密钥空间。这是特定 CA 的密钥生成问题，不是 HTTPS 算法整体被破解。<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=2083449#c5" target="_blank">查看原始事件报告</a></p><p>攻击者可能利用这些私钥伪造证书；能否实施攻击还取决于客户端是否信任相关证书链，以及网络位置等条件。因此，不能把事件直接理解为“所有人的历史流量都已被解密”。</p></section>
@@ -36,12 +36,12 @@
 </ul></section>]]></content>
     </entry>
     <entry>
-      <id>https://axo.dpdns.org/posts/markdown-tutorial/</id>
+      <id>https://axolotl114.github.io/posts/markdown-tutorial/</id>
       <title type="text">Markdown 写作指南：基础语法与 Firefly 扩展</title>
       <published>2026-10-13T00:00:00.000Z</published>
       <updated>2026-10-13T00:00:00.000Z</updated>
       <author><name>emn178</name></author>
-      <link rel="alternate" href="https://axo.dpdns.org/posts/markdown-tutorial/"/>
+      <link rel="alternate" href="https://axolotl114.github.io/posts/markdown-tutorial/"/>
       <summary type="text">从基础语法到代码、公式、图表和 MDX 的分章写作指南，通过所属系列切换章节。</summary>
       <content type="html"><![CDATA[<p>本系列从日常写作出发，先学习通用 Markdown，再了解 Firefly 的代码高亮、公式、图表和组件扩展。使用页面中的 <strong>“所属系列”</strong> 切换章节；文章列表只保留这个入口。</p>
 <section><h2>如何阅读<a href="#如何阅读"><span>#</span></a></h2>
@@ -56,12 +56,12 @@
 <section><h2>系列文章如何发布<a href="#系列文章如何发布"><span>#</span></a></h2><p>同一套教程的各章填写相同的 <code>series</code>，用 <code>seriesOrder</code> 指定阅读顺序。编号最小的公开章节作为列表入口，建议用 <code>0</code> 表示总览，后续章节从 <code>1</code> 开始。文件夹位置不决定章节顺序。</p><div><figure><figcaption></figcaption><pre><code><div><div><div>1</div></div><div><span>series</span><span>: </span><span>我的教程</span></div></div><div><div><div>2</div></div><div><span>seriesOrder</span><span>: </span><span>0</span></div></div></code></pre><div><div></div><div></div></div></figure></div><p>只有设置 <code>draft: false</code> 的章节才会进入生产站点。每章仍保留独立地址，读者可以通过“所属系列”直接访问。</p></section>]]></content>
     </entry>
     <entry>
-      <id>https://axo.dpdns.org/posts/meowtils/getting-started/</id>
+      <id>https://axolotl114.github.io/posts/meowtils/getting-started/</id>
       <title type="text">Meowtils 使用指南：安装、功能与扩展开发</title>
       <published>2026-10-11T00:00:00.000Z</published>
       <updated>2026-10-11T00:00:00.000Z</updated>
       <author><name>Axo</name></author>
-      <link rel="alternate" href="https://axo.dpdns.org/posts/meowtils/getting-started/"/>
+      <link rel="alternate" href="https://axolotl114.github.io/posts/meowtils/getting-started/"/>
       <summary type="text">涵盖安装、功能模块、扩展开发与排错，通过所属系列按顺序阅读四个章节。</summary>
       <content type="html"><![CDATA[<p>本文依据 <a href="https://docs.meowtils.dev/" target="_blank">Meowtils 官方文档</a>整理，查阅日期为 <strong>2026-10-11</strong>。内容为非官方中文摘要；模块名称保留英文，具体参数和更新以各节原文为准。</p>
 
@@ -84,12 +84,12 @@
 <section><h2>更新在什么时候生效<a href="#更新在什么时候生效"><span>#</span></a></h2><p>自动更新会检查新版本并下载文件，在关闭游戏后替换，下次启动时使用新版本。关闭自动更新后仍会收到更新提示，需要自行替换文件；Lunar 环境还要注意文件名与启动配置一致。参考：<a href="https://docs.meowtils.dev/other/auto-updates/" target="_blank">自动更新</a>。</p><p>下一步可以阅读<a href="/posts/meowtils/modules/">功能模块速查</a>，按需要查找功能，而不是一次开启全部模块。</p></section>]]></content>
     </entry>
     <entry>
-      <id>https://axo.dpdns.org/posts/website-bookmarks/</id>
+      <id>https://axolotl114.github.io/posts/website-bookmarks/</id>
       <title type="text">网站书签导航：开发、创作、游戏与日常工具</title>
       <published>2026-10-10T00:00:00.000Z</published>
       <updated>2026-10-10T00:00:00.000Z</updated>
       <author><name>Axo</name></author>
-      <link rel="alternate" href="https://axo.dpdns.org/posts/website-bookmarks/"/>
+      <link rel="alternate" href="https://axolotl114.github.io/posts/website-bookmarks/"/>
       <summary type="text">按用途整理的 505 条网站与文章书签，涵盖博客建站、前端设计、AI、Minecraft、影音创作、效率工具及学习生活，附分类索引。</summary>
       <content type="html"><![CDATA[<p>这是一份从个人浏览器收藏夹整理而来的网址清单。把分散在不同文件夹中的网站、工具和教程按使用场景归类，方便需要时快速查找。</p>
 <p>本次整理基于 <strong>2026 年 10 月 10 日</strong>导出的书签，共收录 <strong>505 条链接</strong>，分为 <strong>11 个主题分类</strong>。同一网站的不同功能页与教程分别保留。</p>
@@ -672,12 +672,12 @@
 </ul></section>]]></content>
     </entry>
     <entry>
-      <id>https://axo.dpdns.org/posts/random-mage-api-guide/</id>
+      <id>https://axolotl114.github.io/posts/random-mage-api-guide/</id>
       <title type="text">Random Mage 图片 API 使用教程：从随机出图到自定义筛选</title>
       <published>2026-10-05T00:00:00.000Z</published>
       <updated>2026-10-05T00:00:00.000Z</updated>
       <author><name>Axo</name></author>
-      <link rel="alternate" href="https://axo.dpdns.org/posts/random-mage-api-guide/"/>
+      <link rel="alternate" href="https://axolotl114.github.io/posts/random-mage-api-guide/"/>
       <summary type="text">从随机出图入门，掌握 Random Mage 图片 API 的标签、尺寸、AI 类型筛选，以及批量 JSON、瀑布流、镜像和网页接入方法。</summary>
       <content type="html"><![CDATA[<p>整理日期：2026-10-05<br />
 文档来源：<a href="https://i.mukyu.ru/docs" target="_blank">Random Mage 官方文档</a> · <a href="https://i.mukyu.ru/openapi.json" target="_blank">OpenAPI</a></p>
@@ -730,12 +730,12 @@
 </ul></section>]]></content>
     </entry>
     <entry>
-      <id>https://axo.dpdns.org/posts/potpvp-directory/</id>
+      <id>https://axolotl114.github.io/posts/potpvp-directory/</id>
       <title type="text">The PotPvP Directory ~ 漠海拾遗</title>
       <published>2026-09-27T00:00:00.000Z</published>
       <updated>2026-09-27T00:00:00.000Z</updated>
       <author><name>Axo</name></author>
-      <link rel="alternate" href="https://axo.dpdns.org/posts/potpvp-directory/"/>
+      <link rel="alternate" href="https://axolotl114.github.io/posts/potpvp-directory/"/>
       <summary type="text">PotPvP 社区资料合集，涵盖客户端、材质包、服务器、工具、游戏教程，以及 OBS 录制、Vegas 剪辑、视频扩帧与补帧。</summary>
       <content type="html"><![CDATA[<blockquote><p>本文整理自 <a href="https://pdir.cc.cd/" target="_blank">The PotPvP Directory ~ 漠海拾遗</a>，于 2026 年 9 月 27 日导入。原文及图片保留自抓取内容；原文菜单中的 Part 4 和“结”未出现在本次抓取的公开正文中。</p></blockquote>
 <section><h2>序<a href="#序"><span>#</span></a></h2><blockquote><p><em><strong>“道在迩而求诸远，事在易而求之难”</strong></em></p></blockquote><p>参商周转，落花如旧</p><p>十年以来，PotPvP社区所构建之瑰宝并不在少数，然因体系松散，并未得以扩大，实数遗憾。继而令资料查阅极为繁琐，既提入坑门槛，又阻社区体验</p><p>事实上，我们完全有理由相信社区的潜力，不光是我们辉煌的历史，更因独立自强的特质，而为每一PvPer塑造之能动性与创造力的天分。那些未开发的，或昙花一现之事物，唯缺一激活条件，即可重获新生。植吧 <a href="https://wiki.pvz1.com/doku.php?id=%E4%BA%8B%E4%BB%B6:328%E4%BA%8B%E4%BB%B6" target="_blank">https://wiki.pvz1.com/doku.php?id=事件:328事件</a> 同样是伟大的亚文化社区，而它从僵化中复苏继而迈向巅峰，花了十年有余。我们同样的历久弥新，同样的富于创造力和钻研性，未必便没有这样的幸运</p><p>因此，作此<code>pdir</code>之知识库的必要性已是板上钉钉，不仅仅是为资料查询提供便利，更是为那个可见的，不同往日的崭新未来</p><hr /><p>其实啊这只是两年前开的一个坑罢了
@@ -2799,12 +2799,12 @@ RIFE模型文件夹的路径，它们不包含在Smoothie中，请参阅<a href=
 </ol><hr /></section></section></section></section>]]></content>
     </entry>
     <entry>
-      <id>https://axo.dpdns.org/posts/vsc-method/</id>
+      <id>https://axolotl114.github.io/posts/vsc-method/</id>
       <title type="text">VSC常用代码技巧(整理)</title>
       <published>2026-02-02T00:00:00.000Z</published>
       <updated>2026-02-02T00:00:00.000Z</updated>
       <author><name>Axo</name></author>
-      <link rel="alternate" href="https://axo.dpdns.org/posts/vsc-method/"/>
+      <link rel="alternate" href="https://axolotl114.github.io/posts/vsc-method/"/>
       <summary type="text">长时间未使用 VS Code 编辑器后，发现许多便捷的 Emmet 缩写方法已生疏。重新查阅资料后，将常用语法整理成笔记，便于共同参考与快速回顾。</summary>
       <content type="html"><![CDATA[<section><h1>VS Code Emmet 缩写语法速查笔记<a href="#vs-code-emmet-缩写语法速查笔记"><span>#</span></a></h1><p>长时间未使用 VS Code 编辑器后，发现许多便捷的 Emmet 缩写方法已生疏。重新查阅资料后，将常用语法整理成笔记，便于共同参考与快速回顾。</p><hr /><section><h2>一、嵌套 <code>&gt;</code><a href="#一嵌套-"><span>#</span></a></h2><p>用于生成父子层级的 HTML 结构。</p><p><strong>输入</strong>：</p><div><figure><figcaption></figcaption><pre><code><div><div><div>1</div></div><div><span>div&gt;ul&gt;li</span></div></div></code></pre><div><div></div><div></div></div></figure></div><p>按下 <code>Tab</code> 键后输出：</p><div><figure><figcaption></figcaption><pre><code><div><div><div>1</div></div><div><span>&lt;</span><span>div</span><span>&gt;</span></div></div><div><div><div>2</div></div><div><span><span>  </span></span><span>&lt;</span><span>ul</span><span>&gt;</span></div></div><div><div><div>3</div></div><div><span><span>    </span></span><span>&lt;</span><span>li</span><span>&gt;&lt;/</span><span>li</span><span>&gt;</span></div></div><div><div><div>4</div></div><div><span><span>  </span></span><span>&lt;/</span><span>ul</span><span>&gt;</span></div></div><div><div><div>5</div></div><div><span>&lt;/</span><span>div</span><span>&gt;</span></div></div></code></pre><div><div></div><div></div></div></figure></div></section><section><h2>二、并列 <code>+</code><a href="#二并列-"><span>#</span></a></h2><p>用于生成同级并列的 HTML 元素。</p><p><strong>输入</strong>：</p><div><figure><figcaption></figcaption><pre><code><div><div><div>1</div></div><div><span>div+p</span></div></div></code></pre><div><div></div><div></div></div></figure></div><p>按下 <code>Tab</code> 键后输出：</p><div><figure><figcaption></figcaption><pre><code><div><div><div>1</div></div><div><span>&lt;</span><span>div</span><span>&gt;&lt;/</span><span>div</span><span>&gt;</span></div></div><div><div><div>2</div></div><div><span>&lt;</span><span>p</span><span>&gt;&lt;/</span><span>p</span><span>&gt;</span></div></div></code></pre><div><div></div><div></div></div></figure></div></section><section><h2>三、重复 <code>*</code><a href="#三重复-"><span>#</span></a></h2><p>用于重复生成多个相同元素。</p><p><strong>输入</strong>：</p><div><figure><figcaption></figcaption><pre><code><div><div><div>1</div></div><div><span>li*3</span></div></div></code></pre><div><div></div><div></div></div></figure></div><p>按下 <code>Tab</code> 键后输出：</p><div><figure><figcaption></figcaption><pre><code><div><div><div>1</div></div><div><span>&lt;</span><span>li</span><span>&gt;&lt;/</span><span>li</span><span>&gt;</span></div></div><div><div><div>2</div></div><div><span>&lt;</span><span>li</span><span>&gt;&lt;/</span><span>li</span><span>&gt;</span></div></div><div><div><div>3</div></div><div><span>&lt;</span><span>li</span><span>&gt;&lt;/</span><span>li</span><span>&gt;</span></div></div></code></pre><div><div></div><div></div></div></figure></div></section><section><h2>四、返回上一级 <code>^</code><a href="#四返回上一级-"><span>#</span></a></h2><p>用于在嵌套结构中返回上一层级，继续生成同级元素。</p><p><strong>输入</strong>：</p><div><figure><figcaption></figcaption><pre><code><div><div><div>1</div></div><div><span>ul&gt;li*3^p</span></div></div></code></pre><div><div></div><div></div></div></figure></div><p>按下 <code>Tab</code> 键后输出：</p><div><figure><figcaption></figcaption><pre><code><div><div><div>1</div></div><div><span>&lt;</span><span>ul</span><span>&gt;</span></div></div><div><div><div>2</div></div><div><span><span>  </span></span><span>&lt;</span><span>li</span><span>&gt;&lt;/</span><span>li</span><span>&gt;</span></div></div><div><div><div>3</div></div><div><span><span>  </span></span><span>&lt;</span><span>li</span><span>&gt;&lt;/</span><span>li</span><span>&gt;</span></div></div><div><div><div>4</div></div><div><span><span>  </span></span><span>&lt;</span><span>li</span><span>&gt;&lt;/</span><span>li</span><span>&gt;</span></div></div><div><div><div>5</div></div><div><span>&lt;/</span><span>ul</span><span>&gt;</span></div></div><div><div><div>6</div></div><div><span>&lt;</span><span>p</span><span>&gt;&lt;/</span><span>p</span><span>&gt;</span></div></div></code></pre><div><div></div><div></div></div></figure></div></section><section><h2>五、分组 <code>()</code><a href="#五分组-"><span>#</span></a></h2><p>用于将部分缩写语法分组，控制生成结构的优先级。</p><p><strong>输入</strong>：</p><div><figure><figcaption></figcaption><pre><code><div><div><div>1</div></div><div><span>(ul&gt;li*2)+p</span></div></div></code></pre><div><div></div><div></div></div></figure></div><p>按下 <code>Tab</code> 键后输出：</p><div><figure><figcaption></figcaption><pre><code><div><div><div>1</div></div><div><span>&lt;</span><span>ul</span><span>&gt;</span></div></div><div><div><div>2</div></div><div><span><span>  </span></span><span>&lt;</span><span>li</span><span>&gt;&lt;/</span><span>li</span><span>&gt;</span></div></div><div><div><div>3</div></div><div><span><span>  </span></span><span>&lt;</span><span>li</span><span>&gt;&lt;/</span><span>li</span><span>&gt;</span></div></div><div><div><div>4</div></div><div><span>&lt;/</span><span>ul</span><span>&gt;</span></div></div><div><div><div>5</div></div><div><span>&lt;</span><span>p</span><span>&gt;&lt;/</span><span>p</span><span>&gt;</span></div></div></code></pre><div><div></div><div></div></div></figure></div></section><section><h2>六、属性 <code>[]</code> 与文本 <code>{}</code><a href="#六属性--与文本-"><span>#</span></a></h2><ul>
 <li><strong>属性</strong>：使用 <code>[属性名=值]</code> 来定义元素属性</li>
@@ -2814,12 +2814,12 @@ RIFE模型文件夹的路径，它们不包含在Smoothie中，请参阅<a href=
 <table><thead><tr><th>缩写</th><th>展开结果</th></tr></thead><tbody><tr><td><code>w100</code></td><td><code>width: 100px;</code></td></tr><tr><td><code>h100</code></td><td><code>height: 100px;</code></td></tr><tr><td><code>poa</code></td><td><code>position: absolute;</code></td></tr><tr><td><code>por</code></td><td><code>position: relative;</code></td></tr><tr><td><code>tdn</code></td><td><code>text-decoration: none;</code></td></tr><tr><td><code>db</code></td><td><code>display: block;</code></td></tr><tr><td><code>df</code></td><td><code>display: flex;</code></td></tr><tr><td><code>fdc</code></td><td><code>flex-direction: column;</code></td></tr><tr><td><code>bd1px#cccsolid</code></td><td><code>border: 1px #ccc solid;</code></td></tr></tbody></table><hr /><blockquote><p>提示：以上语法在 VS Code 默认支持的 Emmet 环境下均可使用，适用于 <code>.html</code> 与 <code>.css</code> 等文件类型。熟练后可极大提升 HTML/CSS 编写效率。</p></blockquote></section></section>]]></content>
     </entry>
     <entry>
-      <id>https://axo.dpdns.org/posts/measure-url-picbed/</id>
+      <id>https://axolotl114.github.io/posts/measure-url-picbed/</id>
       <title type="text">图片裂图？图床链接失效？你一定得知道的补救措施！</title>
       <published>2026-01-20T00:00:00.000Z</published>
       <updated>2026-01-20T00:00:00.000Z</updated>
       <author><name>Axo</name></author>
-      <link rel="alternate" href="https://axo.dpdns.org/posts/measure-url-picbed/"/>
+      <link rel="alternate" href="https://axolotl114.github.io/posts/measure-url-picbed/"/>
       <summary type="text">图片裂图链接无法生效，看完教程你直接顿悟！</summary>
       <content type="html"><![CDATA[<section><h1>图片裂图？图床链接失效？你一定得知道的补救措施！<a href="#图片裂图图床链接失效你一定得知道的补救措施"><span>#</span></a></h1><p>今天在使用 Markdown 发布文章时，突然发现上传到<strong>图床图片裂图</strong>（即图片无法正常加载）<br />
 头脑风暴后发现问题所在</p><section><h2>开启了IUAM?<a href="#开启了iuam"><span>#</span></a></h2><p><strong>在使用 Cloudflare 等服务时开启了”I’m Under Attack Mode”</strong>（IUAM）<br />
@@ -2842,12 +2842,12 @@ Markdown 测试：在博客中插入图片并查看效果。</li>
 </ol><p></p><figure><img src="https://img.grushtom.com/file/1768904958375_ticket.png" alt="Test Image" /><figcaption>Test Image</figcaption></figure><p></p><p>这样，你就能兼顾安全性和图床的可用性，无需妥协。</p></section></section></section></section>]]></content>
     </entry>
     <entry>
-      <id>https://axo.dpdns.org/posts/hexo/</id>
+      <id>https://axolotl114.github.io/posts/hexo/</id>
       <title type="text">Hexo+GithubPages部署博客</title>
       <published>2026-01-12T00:00:00.000Z</published>
       <updated>2026-01-12T00:00:00.000Z</updated>
       <author><name>Axo</name></author>
-      <link rel="alternate" href="https://axo.dpdns.org/posts/hexo/"/>
+      <link rel="alternate" href="https://axolotl114.github.io/posts/hexo/"/>
       <summary type="text">深入了解如何使用Hexo框架+Github Pages搭建一个属于你的个人博客，新手必看系列</summary>
       <content type="html"><![CDATA[<section><h1>使用HEXO + Github Pages搭建个人博客<a href="#使用hexo--github-pages搭建个人博客"><span>#</span></a></h1><section><h2>功能特点<a href="#功能特点"><span>#</span></a></h2><ul>
 <li>无需服务器</li>

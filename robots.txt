@@ -4,4 +4,4 @@ Disallow: /archive/?tag=
 Disallow: /archive/?category=
 Disallow: /archive/?uncategorized=
 
-Sitemap: https://axo.dpdns.org/sitemap-index.xml
+Sitemap: https://axolotl114.github.io/sitemap-index.xml
