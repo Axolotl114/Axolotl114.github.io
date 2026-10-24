@@ -4,7 +4,9 @@
 
 - **站点**：<https://axolotl114.github.io/>
 - **托管**：GitHub Pages 用户站点仓库 `Axolotl114/Axolotl114.github.io`（`gh-pages` 分支，免费、自带 CDN 与 HTTPS）
-- **产物**：`dist/`（`output: "static"`），最新构建 **23.31 MB / 309 files / 50 HTML**，预算 ≤ 50MB
+- **产物**：`dist/`（`output: "static"`），体积/页面数以**最新构建**为准（构建末尾自动跑 `pnpm size`，预算 ≤ 50MB）
+- **仓库结构**：**`main` = 源码**（Astro 工程）／**`gh-pages` = 构建产物**（`dist/` 内容 + `.nojekyll`）
+- **写作**：站点自带 `/admin/` 写作后台（GitHub PAT 登录 → 提交 `main` → Actions 自动构建发布）
 - **基座**：Firefly 6.16.8（Astro 7 + Svelte 5 + Tailwind CSS v4）
 
 ---
@@ -40,13 +42,17 @@ pnpm check      # astro check
 │   ├── controls/DisplaySettingsIntegrated.svelte   # 设置面板（主题 / 玻璃 / 背景）
 │   ├── config/backgroundWallpaper.ts               # 壁纸模式与背景预设
 │   ├── config/commentConfig.ts                     # Giscus（部署前替换 4 个占位值）
+│   ├── pages/admin.astro                           # /admin/ 私有写作后台（PAT 登录）
+│   ├── content/posts|dynamic|projects/             # 内容目录（模板演示内容已清空）
 │   └── utils/blog-theme-utils.ts                   # CSS 变量 ←→ localStorage
 ├── public/images/axo-bg-desktop.webp              # 67KB（1920w）
 ├── public/images/axo-bg-mobile.webp               # 34KB（1080w）
 ├── public/assets/images/avatar-axo.webp           # 头像（壁纸裁切）
+├── .github/workflows/pages.yml                    # main → pnpm build → 发布 gh-pages
 ├── deploy/nginx-site.conf                         # 宝塔 Nginx 片段（纯 ASCII 无注释，直接粘贴）
 ├── deploy/nginx.conf                              # 同上的中文注释讲解版
-├── deploy/pages-deploy.ps1                        # GitHub Pages 更新脚本（build → _deploy/pages → 推送 gh-pages）
+├── deploy/pages-deploy.ps1                        # 备用手动发布（build → _deploy/pages → 推 gh-pages）
+├── deploy/sync-source.ps1                         # 把本地最小源码集推到源码仓库 main
 ├── scripts/check-size.mjs                         # dist 体积告警
 ├── .agents/skills/                                # 项目级 Agent Skills
 ├── DEPLOY.md                                      # 部署指南（先读这个）
@@ -66,15 +72,29 @@ pnpm check      # astro check
 
 ## 部署（TL;DR）
 
-**现行方案：GitHub Pages 用户站点（无自定义域名）** —— 站点 **https://axolotl114.github.io/**，发布仓库 [`Axolotl114/Axolotl114.github.io`](https://github.com/Axolotl114/Axolotl114.github.io) 的 `gh-pages` 分支（只放 `dist/` 内容 + `.nojekyll`，共 310 个文件；**不要** `CNAME`）。
+**现行方案：GitHub Pages 用户站点（无自定义域名）** —— 站点 **https://axolotl114.github.io/**，发布仓库 [`Axolotl114/Axolotl114.github.io`](https://github.com/Axolotl114/Axolotl114.github.io)。
 
-1. `pnpm build` → 检查 `pnpm size` 无 WARNING；
-2. 把 **`dist/` 里的全部内容**（不是 `dist` 文件夹本身）复制到 `_deploy/pages`；
-3. 在 `_deploy/pages` 里补 0 字节 `.nojekyll`（否则 Jekyll 会吞掉 `_astro/`，全站无样式）；**不要再生成 `CNAME`**；
-4. `git init -b gh-pages` → 提交 → 用 `$env:GITHUB_TOKEN` 内联 header 推送 `gh-pages`（推荐直接跑 `deploy/pages-deploy.ps1`）；
-5. 用户站点仓库天然落在域名根路径，`base: "/"` 无需改动；HTTPS 由 `*.github.io` 标配（`https_enforced=true`），**不需要任何 DNS 配置**。
+- **`main` = 源码**：本仓库（Astro 工程，不含 `dist/`）；日常写作走 `/admin/` 或本地编辑后提交。
+- **`gh-pages` = 构建产物**：只放 `dist/` 内容 + `.nojekyll`（**不要** `CNAME`）；Pages Source = `gh-pages` / `/`。
+- **自动发布**：push 到 `main`（或手动 `workflow_dispatch`）→ `.github/workflows/pages.yml` 执行 `pnpm install` + `pnpm build` → 用 `peaceiris/actions-gh-pages` 把 `dist/` 发布到 `gh-pages`，约 2～5 分钟上线。
+- **备用手动发布**：本地 `pnpm build` → `powershell -ExecutionPolicy Bypass -File deploy\pages-deploy.ps1`（构建 + 补 `.nojekyll` + 推 `gh-pages`，token 从 `$env:GITHUB_TOKEN` 读取）。
+- 用户站点仓库天然落在域名根路径，`base: "/"` 无需改动；HTTPS 由 `*.github.io` 标配，**不需要任何 DNS 配置**。
 
-完整步骤、`.nojekyll` 原理、发布命令与排错见 **[DEPLOY.md](./DEPLOY.md) §0**；宝塔 Nginx 主机（moebun.com）作为**备用方案**保留在 DEPLOY.md §1～§10。
+完整步骤、分支约定、`.nojekyll` 原理与排错见 **[DEPLOY.md](./DEPLOY.md) §0**；宝塔 Nginx 主机（moebun.com）作为**备用方案**保留在 DEPLOY.md §1～§10。
+
+## 内容撰写：`/admin/` 写作后台
+
+站内自带一个**私有、纯前端**的写作后台（`src/pages/admin.astro`，`noindex`、不在导航、不参与 Pagefind 检索）：
+
+1. 打开 **<https://axolotl114.github.io/admin/>**，用 **GitHub Personal Access Token** 登录：
+   - classic PAT：勾选 `repo`；
+   - fine-grained PAT：Repository permissions → `Contents: Read and write`，授权 `Axolotl114/Axolotl114.github.io`；
+   - 只有 `Axolotl114` 账号的 token 会被放行；token 只保存在浏览器（勿在共用设备勾选"记住"）。
+2. 在后台新建/编辑文章（标题、slug、日期、分类、标签、正文 Markdown），保存即通过 GitHub API 提交到 `main` 的 `src/content/posts/<slug>.md`。
+3. 提交后 GitHub Actions（`pages.yml`）自动构建并发布，约 2～5 分钟可见。
+
+> 本地写作等价流程：在 `src/content/posts/` 新建 `.md` → `pnpm build` 自检 → 提交并 push `main`。
+> 文章 frontmatter 字段见 `src/content.config.ts`（`title/published/description/tags/category/draft/pinned/comment` 等）。
 
 ## 静态能力
 
@@ -84,21 +104,22 @@ pnpm check      # astro check
 
 ## 仓库与发布
 
-本仓库基于 `GrushTom/astroGT`（Firefly），当前在分支 **`axo`** 上，上游历史保留。推送到自己的 GitHub：
+本仓库基于 `GrushTom/astroGT`（Firefly），上游历史保留。**源码分支 = `main`，产物分支 = `gh-pages`**：
 
-```powershell
-# 把 origin 指向上游（保留可同步），新增自己的源码仓库（与 Pages 发布仓库分开，例如 axo-blog）
-git remote rename origin upstream
-git remote add origin git@github.com:<你的用户名>/axo-blog.git
-git push -u origin axo
-```
+| 分支 | 内容 | 写入方 |
+| --- | --- | --- |
+| `main` | 源码（`src/`、`public/`、`scripts/`、`package.json`、`astro.config.mjs` …，不含 `dist/`） | 本地开发 / `/admin/` 写作后台 / PR |
+| `gh-pages` | 站点产物（`dist/` 全部内容 + `.nojekyll`，不含源码） | `.github/workflows/pages.yml` 自动发布，或 `deploy/pages-deploy.ps1` 备用 |
 
-- 站点发布走 **GitHub Pages 用户站点**：`dist/` 内容 + `.nojekyll` 全量推送到 `Axolotl114/Axolotl114.github.io` 的 `gh-pages` 分支（见 [`DEPLOY.md` §0](./DEPLOY.md) 与 [`deploy/pages-deploy.ps1`](./deploy/pages-deploy.ps1)），站点地址 https://axolotl114.github.io/ 。Vercel / Cloudflare Workers 配置保留但本项目不使用。
-- `.github/workflows/deploy.yml` 只做 **手动触发（workflow_dispatch）构建并上传 `dist` artifact**，不参与 Pages 发布。
-- 宝塔文件管理器 / SFTP / rclone 手动上传流程（DEPLOY.md §1～§10）作为**备用方案**保留。
+发布流水线：`main` push（或 Actions 手动触发）→ `pages.yml`：`pnpm install` → `pnpm build`（含 Pagefind 索引与体积检查）→ `peaceiris/actions-gh-pages` 发布到 `gh-pages` → GitHub Pages（Source=`gh-pages`）上线 `https://axolotl114.github.io/`。
+
+- 自动发布工作流：`.github/workflows/pages.yml`（已启用；`build.yml`/`biome.yml` 只做 CI 检查）。
+- 备用手动发布：`deploy/pages-deploy.ps1`（本地构建后推 `gh-pages`，token 从 `$env:GITHUB_TOKEN` 读取）。
+- 内容撰写：站内 `/admin/` 后台（PAT 登录，提交到 `main`，不直接碰 `gh-pages`）。
+- 宝塔文件管理器 / SFTP / rclone 手动上传流程（DEPLOY.md §1～§10）作为**备用方案**保留；Vercel / Cloudflare 配置保留但不使用。
 
 ## 许可与署名
 
 - 主题基座：Firefly（MIT），基于 Fuwari；详见 [LICENSE](./LICENSE) 与 [README.firefly.md](./README.firefly.md)。
 - 壁纸与头像：来自项目自带参考素材（`reference/`），仅用于本站。
-- 演示文章：`src/content/posts/` 中带有「示例 / 演示」标签的文章来自模板，作为内容占位，可自行替换或删除。
+- 内容：`src/content/posts/` 等模板演示内容已于 2026-10 全部清空，站点从空内容重新开始（`/admin/` 或本地撰写）。

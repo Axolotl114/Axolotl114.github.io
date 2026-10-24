@@ -1,0 +1,77 @@
+name: Build & Deploy to GitHub Pages
+
+# 仓库模型：main = 源码分支，gh-pages = 构建产物分支。
+# Pages 的 Source 仍然是「Deploy from a branch → gh-pages /」，不是 “GitHub Actions” 部署，
+# 这样切换部署方式不会造成站点空窗；peaceiris 动作会把 dist/ 推到 gh-pages，
+# 并自动写入 `.nojekyll`（保住 `_astro/` 不被 Jekyll 吞掉）。
+#
+# 触发条件（部署时序）：
+#   - 现在源码还在被前端/后端改动，push 自动触发暂时关闭，只留手动 workflow_dispatch，
+#     手动触发默认 publish=false：只构建、不发布，用来验证 pipeline 本身；
+#   - 源码定稿后，把下面的 push 触发取消注释（push: branches: [main]），
+#     之后每次 main 更新都会自动构建并发布；push 事件下 publish 输入为空，
+#     deploy 步骤的 if 条件会走 github.event_name == 'push' 分支照常发布。
+
+on:
+  # push:
+  #   branches: [main]
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "构建完成后把 dist 发布到 gh-pages（默认关闭：仅验证构建，不动线上）"
+        type: boolean
+        required: false
+        default: false
+
+# 发布到 gh-pages 需要 contents: write
+permissions:
+  contents: write
+
+concurrency:
+  group: pages-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      # pnpm 版本由 package.json 的 packageManager 字段决定（pnpm@11.22.0）
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          npm_config_yes: "true" # preinstall 的 `npx only-allow pnpm` 不交互
+
+      - name: Build site
+        run: pnpm build
+        env:
+          npm_config_yes: "true"
+          # 构建链里 generate-github-card-data.ts 会请求 api.github.com，
+          # 带上 token 避免匿名 60 次/小时限流（失败也有本地缓存兜底）
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Deploy dist to gh-pages branch
+        # push 自动触发时总是发布；手动触发时只有勾选 publish=true 才发布
+        if: ${{ github.event_name == 'push' || inputs.publish == true }}
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+          publish_branch: gh-pages
+          force_orphan: false # 保留 gh-pages 历史，正常追加提交
+          enable_jekyll: false # 自动写 .nojekyll
+          commit_message: "deploy: ${{ github.sha }}"

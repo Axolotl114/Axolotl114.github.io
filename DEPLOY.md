@@ -5,24 +5,26 @@
 > 备用方案：moebun.com 宝塔虚拟主机（Nginx，空间 300MB / 数据库 200MB / 带宽 30M）
 > 产物：Astro `output: 'static'` 构建出的 `dist/`，**只上传 `dist/` 的内容**到站点根目录。
 >
-> 本文所有体积/页面数基线均可复现（见〔附录 C〕）。**最新构建（2026-10-24 10:59，`site_url` 改为 `https://axolotl114.github.io/` 后重建）**：
-> `dist = 23.31 MB / 309 个文件 / 50 个 HTML / Pagefind 29 页`（清理前历史基线 46.48 MB / 398 文件 / 51 HTML，见 §2.3）。
+> 本文所有体积/页面数基线均可复现（见〔附录 C〕）。**2026-10 内容重建后**：模板演示内容已全部清空（`src/content/posts`、`src/content/dynamic`、`src/content/projects` 为空；`friends/sponsors` 示例 JSON、`galleryConfig` 演示相册已清空），站点从「空内容」起步。
+> **最新体积/页面数以最后一次 `pnpm build` 末尾 `pnpm size` 的输出为准**（此前 23.31 MB / 309 文件 / 50 HTML / 29 页的基线已因内容清空而失效，仅作历史参考）。
 
 ---
 
 ## 0. 当前方案：GitHub Pages 用户站点（无自定义域名）
 
-站点通过 **GitHub Pages 用户站点仓库**发布到免费地址 `https://axolotl114.github.io/`：无服务器、免费、自带 CDN 与 HTTPS。`Axolotl114.github.io` 是 GitHub 的「用户站点」仓库，站点直接落在域名**根路径**，所以 Astro 的 `base: "/"` 与 `/_astro/...`、`/pagefind/...`、`/images/...` 绝对路径全部原样可用。发布内容只有网站产物：`dist/` 的全部内容 + `.nojekyll`（共 **310** 个文件），不含源码、文档、依赖。
+站点通过 **GitHub Pages 用户站点仓库**发布到免费地址 `https://axolotl114.github.io/`：无服务器、免费、自带 CDN 与 HTTPS。`Axolotl114.github.io` 是 GitHub 的「用户站点」仓库，站点直接落在域名**根路径**，所以 Astro 的 `base: "/"` 与 `/_astro/...`、`/pagefind/...`、`/images/...` 绝对路径全部原样可用。发布内容只有网站产物：`dist/` 的全部内容 + `.nojekyll`（**文件数以最新构建为准**，不含源码、文档、依赖）。
 
 | 项目 | 值 |
 | --- | --- |
 | 站点地址 | <https://axolotl114.github.io/> |
 | 发布仓库 | <https://github.com/Axolotl114/Axolotl114.github.io>（public；由旧仓库 `axo-blog` 改名而来） |
+| **仓库结构** | **`main` = 源码**（Astro 工程）；**`gh-pages` = 构建产物**（`dist/` 内容 + `.nojekyll`） |
 | 发布分支 | `gh-pages`（仓库默认分支；分支根目录 = 站点根目录，不嵌套 `dist/`） |
-| Pages 配置 | Source = `gh-pages` / `/`，`build_type: legacy`（不用 Actions 部署） |
+| Pages 配置 | Source = `gh-pages` / `/`，`build_type: legacy`（Pages 只托管分支，不跑 Actions 部署） |
+| 自动构建 | `.github/workflows/pages.yml`：push 到 `main`（或手动 `workflow_dispatch`）→ `pnpm install` + `pnpm build` → 用 `peaceiris/actions-gh-pages` 把 `dist/` 发布到 `gh-pages` |
+| 写作后台 | <https://axolotl114.github.io/admin/>（PAT 登录 → 直接提交 `src/content/posts/<slug>.md` 到 `main`，触发 Actions） |
 | 自定义域名 | **无**（`axo.dpdns.org` 已移除；不需要任何 DNS 记录） |
-| 本地部署目录 | `D:\blog\_deploy\pages`（由 `dist\` 内容复制而来） |
-| 更新脚本 | `deploy/pages-deploy.ps1` |
+| 手动发布（备用） | `deploy/pages-deploy.ps1`（本地 `pnpm build` 后手动推 `gh-pages`） |
 | 备用方案 | 宝塔 Nginx 虚拟主机，见本文件 §1～§10（保留备查） |
 
 ### 0.1 唯一必需的元文件：`.nojekyll`
@@ -42,33 +44,43 @@
 
 `*.github.io` 是 GitHub Pages 标配 HTTPS（自动签发、自动续期）。用户站点默认 `https_enforced=true`（可用 `GET /repos/Axolotl114/Axolotl114.github.io/pages` 确认），不需要额外申请证书；也可在仓库 **Settings → Pages → Enforce HTTPS** 查看状态。
 
-### 0.4 更新发布（每次内容变更）
+### 0.4 写作与发布：`main` = 源码，`gh-pages` = 产物
+
+**仓库结构（两分支单向流水线）**：
+
+| 分支 | 内容 | 谁写入 |
+| --- | --- | --- |
+| **`main`** | 源码：`src/`、`public/`、`scripts/`、`package.json`、`astro.config.mjs` …（不含 `dist/`） | 本地开发 / `/admin/` 写作后台 / 手工 PR |
+| **`gh-pages`** | 构建产物：`dist/` 的全部内容 + `.nojekyll`（**不含源码**） | 仅由 `.github/workflows/pages.yml` 自动写入（或备用脚本 `deploy/pages-deploy.ps1` 手动推送） |
+
+**日常写作（推荐）：`/admin/` 写作后台**
+
+打开 <https://axolotl114.github.io/admin/>（`noindex`、不在导航、不参与 Pagefind 检索）：
+
+1. 用 **GitHub Personal Access Token** 登录：
+   - classic PAT：勾选 `repo`；
+   - fine-grained PAT：Repository permissions → **Contents: Read and write**，授权 `Axolotl114/Axolotl114.github.io`；
+   - 只有 `Axolotl114` 账号的 token 会被放行；token 只存在浏览器内存（可选 localStorage，仅限私人设备）。
+2. 新建/编辑文章 → 填写标题、slug、日期、分类、标签、正文（Markdown）。
+3. 点「提交到 main」→ 文章写入 `main` 分支的 `src/content/posts/<slug>.md`。
+4. `.github/workflows/pages.yml` 自动触发：`pnpm install` → `pnpm build` → 把 `dist/` 发布到 `gh-pages`，约 **2～5 分钟**上线（可在仓库 Actions 页面看进度）。
+
+**本地写作（等价流程）**：
 
 ```powershell
-# 1) 构建（产物 dist\）
-pnpm build
-
-# 2) 复制 dist 的【内容】到部署目录（不是 dist 目录本身）
-$dst = "D:\blog\_deploy\pages"
-if (Test-Path $dst) { Remove-Item $dst -Recurse -Force }
-New-Item -ItemType Directory -Path $dst -Force | Out-Null
-Get-ChildItem "D:\blog\dist" -Force | ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination $dst -Recurse -Force }
-
-# 3) 补 .nojekyll（每次重建部署目录后都必须重加，0 字节；不要再加 CNAME）
-[System.IO.File]::WriteAllBytes("$dst\.nojekyll", @())
-
-# 4) 提交并推送（token 只从环境变量读，绝不写进 remote / git config / 任何文件）
-$env:GITHUB_TOKEN = "<classic PAT，scope=repo>"
-Set-Location $dst
-git init -b gh-pages            # 仅首次；目录里已有 .git 则跳过
-git config core.quotepath false # 有中文文件名（如 mp3）
-git -c user.name="Axo" -c user.email="294813744+Axolotl114@users.noreply.github.com" add -A
-git -c user.name="Axo" -c user.email="294813744+Axolotl114@users.noreply.github.com" commit -m "deploy: axolotl114.github.io static build"
-$basic = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("x-access-token:$env:GITHUB_TOKEN"))
-git -c http.https://github.com/.extraheader="AUTHORIZATION: basic $basic" push --force https://github.com/Axolotl114/Axolotl114.github.io.git gh-pages:gh-pages
+# 1) 写 Markdown：src/content/posts/<slug>.md（frontmatter 见下图/现有模板）
+# 2) 本地构建 + 体积检查
+pnpm build        # 产物 dist/，末尾自动跑 check-size
+pnpm size         # 只看体积
+# 3) 提交并推送 main，触发 Actions 自动构建发布
+git add src/content/posts/<slug>.md
+git commit -m "feat: add <slug>"
+git push origin main
 ```
 
-脚本版（推荐）：`powershell -ExecutionPolicy Bypass -File deploy\pages-deploy.ps1`，token 从 `$env:GITHUB_TOKEN` 读取，脚本内无明文 token。
+**手动发布（备用，不走 Actions）**：本地 `pnpm build` 后运行 `powershell -ExecutionPolicy Bypass -File deploy\pages-deploy.ps1`（token 从 `$env:GITHUB_TOKEN` 读取，脚本内无明文 token），它会把 `dist/` 内容 + `.nojekyll` 推到 `gh-pages`。仅在 Actions 不可用时使用。
+
+**手动触发 Action**：仓库 Actions → **Build & Deploy to GitHub Pages** → **Run workflow**（`workflow_dispatch`）。
 
 ### 0.5 发布后自检
 
@@ -77,12 +89,12 @@ git -c http.https://github.com/.extraheader="AUTHORIZATION: basic $basic" push -
 (Invoke-WebRequest "https://api.github.com/repos/Axolotl114/Axolotl114.github.io/pages" -Headers @{ Authorization = "Bearer $env:GITHUB_TOKEN"; "User-Agent" = "Axolotl114" } -UseBasicParsing).Content
 # 最近一次构建（status 应为 built，error.message 为 null）
 (Invoke-WebRequest "https://api.github.com/repos/Axolotl114/Axolotl114.github.io/pages/builds/latest" -Headers @{ Authorization = "Bearer $env:GITHUB_TOKEN"; "User-Agent" = "Axolotl114" } -UseBasicParsing).Content
-# 远端产物文件数（应为 310）
+# 远端产物文件数（= 最新构建的 dist 文件数 + 1 个 .nojekyll；以最新构建为准）
 $t = (Invoke-WebRequest "https://api.github.com/repos/Axolotl114/Axolotl114.github.io/git/trees/gh-pages?recursive=1" -Headers @{ "User-Agent" = "Axolotl114" } -UseBasicParsing).Content | ConvertFrom-Json
 ($t.tree | Where-Object type -eq 'blob').Count
 ```
 
-线上抽查（真实访问，无需等 DNS）：首页 `https://axolotl114.github.io/`、文章页 `https://axolotl114.github.io/posts/markdown-tutorial/`、`/pagefind/pagefind.js`、`/images/axo-bg-desktop.webp`、`/_astro/` 下的 CSS/JS 应全部 **200**；随便一个不存在的路径（如 `/no-such-page-xyz/`）应返回 **404** 并落到站内 `404.html`。
+线上抽查（真实访问，无需等 DNS）：首页 `https://axolotl114.github.io/`、`/about/`、`/archive/`、`/search/`、`/pagefind/pagefind.js`、`/images/axo-bg-desktop.webp`、`/_astro/` 下的 CSS/JS 应全部 **200**；随便一个不存在的路径（如 `/no-such-page-xyz/`）应返回 **404** 并落到站内 `404.html`。
 
 ### 0.6 常见坑（GitHub Pages）
 
@@ -93,7 +105,7 @@ $t = (Invoke-WebRequest "https://api.github.com/repos/Axolotl114/Axolotl114.gith
 | 地址变成 `axolotl114.github.io/axo-blog/` 且样式全丢 | 仓库名不是 `Axolotl114.github.io`（用户站点仓库必须是 `<user>.github.io`） | 仓库改名回 `Axolotl114.github.io`，或改用子路径并同步改 `base` |
 | `https_enforced` 为 false | 用户站点一般默认 true，偶发设置未同步 | 仓库 **Settings → Pages → Enforce HTTPS** 勾选，或 `PUT /pages {"https_enforced": true}` |
 | 推送 403 `Permission ... denied` | token 缺 `repo` scope / 已过期 | 重新生成 classic PAT（scope=repo），改用 `$env:GITHUB_TOKEN` 注入 |
-| 仓库里混进源码 / `node_modules` | 在错误目录 `git add` | 只在 `_deploy\pages` 内 `git init` + `add -A`；推送前 `git ls-files` 应为 **310** 条（309 个 dist 文件 + `.nojekyll`） |
+| 仓库里混进源码 / `node_modules` | 在错误目录 `git add` | 只在 `_deploy\pages` 内 `git init` + `add -A`；推送前 `git ls-files` 条数 = 最新构建的 `dist` 文件数 + 1（`.nojekyll`） |
 | 旧页面仍可访问 | 全量覆盖推送不会删远端多余文件 | 每次重建 `_deploy\pages` 后 `add -A` 提交，历史里已删文件会一并消失（或用 `git rm -r` 清理） |
 
 ---
@@ -112,7 +124,7 @@ pnpm size   （体积告警）         把 dist/ 里的“全部内容”上传�
 
 - 站点主线已迁至 **GitHub Pages 用户站点**（见 §0），本节起描述的是**宝塔备用方案**。
 - **不要**用 Vercel / Cloudflare Pages 做自动部署（模板里相关配置保留但本项目不使用，见 §7）。
-  GitHub Actions 仅保留"手动触发构建 + 上传 dist artifact"的可选流程（`deploy.yml`，`workflow_dispatch`），产物下载后仍按本文手动上传。
+  GitHub Pages 主线（§0.4）：push 到 `main` → `.github/workflows/pages.yml` 自动 `pnpm build` 并发布 `dist/` 到 `gh-pages`；手动发布备用脚本为 `deploy/pages-deploy.ps1`。
 - **不要**上传源码目录、`node_modules/`、`dist/` 文件夹本身（否则站点根目录会多一层 `dist/`）。
 - 必须保证站点根目录下直接可见：`index.html`、`404.html`、`pagefind/`、`_astro/`、`images/`、`assets/`。
 - 站点必须部署在**域名根路径**（`/`），因为 Pagefind 索引与站内资源使用 `/pagefind/...`、`/_astro/...` 绝对路径。
@@ -193,34 +205,26 @@ dist/
 ├── robots.txt / rss.xml / atom.xml / llms.txt
 ```
 
-**最终构建（2026-10-24 09:12，Lead）与清理前历史基线对照（均可复现）**：
+**体积/页面数基线：以最新构建为准。**
 
-| 指标 | 最终构建（09:12） | 清理前历史基线 | 说明 |
-| --- | --- | --- | --- |
-| `dist/` 总体积 | **23.31 MB**（24,443,380 bytes） | 46.48 MB | 清理演示资源 + 关闭冗余页面后 |
-| 文件总数 | 309 | 398 | |
-| HTML 页面 | 50 | 51 | `addGuide.md` 删除后 −1；`bilibili`/`bangumi`/`sponsor` 仍输出 ~289B 的“页面已关闭”重定向占位页 |
-| sitemap URL | 40 | 44 | 已关闭页面从 sitemap 过滤 |
-| Pagefind 索引页数 | **29 页（zh-cn）** | 30 页 | `addGuide.md` 删除后 −1 |
-| `dist/pagefind/` | 0.81 MB / 45 文件 | 0.81 MB / 46 文件 | 纯静态，随站点上传 |
-| `dist/_astro/` | 5.98 MB | 5.94 MB | 框架 CSS/JS/字体/文章封面图（前端视觉更新后略增） |
-| `dist/posts/` | 9.28 MB | 9.76 MB | 每页约 0.3～1.1MB（内联样式/脚本 + 图表运行时代码） |
-| `dist/images/` | 0.10 MB（仅 2 张背景图） | 20.40 MB | 其中 `potpvp-directory/` 20.30MB 为未引用演示截图，已清理（见 §2.4） |
-| `dist/assets/` | 1.57 MB | 2.91 MB | 音乐 0.93MB、字体 52KB、图片/JS 等；清理 1.28MB 未引用字体与 104KB 重复头像后 |
+> 2026-10 内容重建：模板演示内容已全部清空（`src/content/posts`、`dynamic`、`projects` 已为空；`src/data/friends`/`sponsors` 示例 JSON 与 `galleryConfig` 演示相册已清空），站点从空内容起步。
+> 因此此前「23.31 MB / 309 文件 / 50 HTML / Pagefind 29 页」的基线**已失效**，不再适用于当前产物；每次构建后在仓库根目录跑 `pnpm size`（或看构建日志末尾 `check-size.mjs` 输出）获取真实数字。
 
-最终构建预算 **46.6% of 50MB**（`pnpm size`：exit 0、无 WARNING），距 50MB 目标余量 26.7MB。
-Top10 最大文件（均为 HTML 页面/媒体，其中 `posts/potpvp-directory/index.html` 是**文章页 588.0KB，不是图片**）：
-`posts/markdown-mermaid/index.html` 1.04MB、`assets/music/使一颗心免于哀伤-哼唱.mp3` 914.7KB、`posts/potpvp-directory/index.html` 588.0KB、`rss.xml` 474.2KB、`posts/website-bookmarks/index.html` 469.0KB、`posts/code-examples/index.html` 424.8KB、`posts/hexo/index.html` 416.6KB、`posts/markdown-extended/index.html` 380.7KB、`posts/katex-math-example/index.html` 378.7KB、`posts/random-mage-api-guide/index.html` 378.4KB。
-若后续继续迭代，以最新一次 `pnpm build` 的 `pnpm size` 输出为准。
+| 指标 | 当前状态 |
+| --- | --- |
+| `dist/` 总体积 / 文件数 / HTML 页数 | **以最新构建的 `pnpm size` 输出为准**（空内容起步，体积会明显小于此前的 23.31MB） |
+| Pagefind 索引页数 | **以构建日志 `Indexed N pages` / `dist/pagefind/pagefind-entry.json` 为准** |
+| sitemap URL 数 | 以 `dist/sitemap-0.xml` 实际条目为准 |
+
+历史参考（内容清空前，仅备查）：`23.31 MB / 309 文件 / 50 HTML / Pagefind 29 页 / sitemap 40`。若后续继续迭代，同样以最新一次 `pnpm build` 的 `pnpm size` 输出为准。
 
 ### 2.4 资源体积管控
 
-- 目标：`dist ≤ 50MB`（硬上限 50MB，告警阈值），上传到 300MB 空间后仍保留 ≥ 90% 余量；**2026-10-24 09:12 最终构建实测 23.31MB**。
+- 目标：`dist ≤ 50MB`（硬上限 50MB，告警阈值），上传到 300MB 空间后仍保留 ≥ 90% 余量；**当前实测以最新构建 `pnpm size` 为准**。
+- 2026-10 内容重建（模板演示内容清空）：删除 `src/content/posts/**`（含模板演示文章、`meowtils/`、`guide/`、`posts/images/`）、`src/content/dynamic/**`、`src/content/projects/**`（含 `images/`），清空 `src/data/friends/*.json`、`src/data/sponsors/*.json` 与 `src/config/galleryConfig.ts` 的演示相册；`src/content/spec/about.md` 保留。空集合按空状态渲染（`src/pages/[...page].astro`、`src/pages/archive.astro` 已加空状态保护）。
 - 已清理：`public/images/potpvp-directory/`（87 张封面截图，20.30MB，站点正文实际引用的是远端图床，本地副本无引用）。
 - 已清理：`public/assets/fonts/Uranus_Pixel_11Px.ttf`（1.28MB，全仓库检索无引用）与 `public/assets/images/avatar - 副本.webp`（104KB，重复副本）。
-- 已删除：`src/content/posts/addGuide.md`（模板作者加群广告文）→ HTML 页面 51 → 50、Pagefind 索引 29 页。
-- 已关闭：`bilibili` / `bangumi` / `sponsor` 页面（避免构建期外部 API 依赖、移除模板作者打赏内容）；产物只输出 ~289B 的“页面已关闭”重定向占位页，且已从 sitemap 排除。
-- 品牌替换：新增 `public/assets/images/avatar-axo.webp`（17.4KB）与 `about-axo.webp`（24.2KB），替换模板头像 / 关于页图片。
+- 历史记录（2026-10-24 第二次清理，随后内容又被整体清空）：`src/content/posts/addGuide.md` 删除（模板作者加群广告文）；`bilibili`/`bangumi`/`sponsor` 页面关闭（产物只剩 ~289B meta-refresh 占位页、不进 sitemap）；新增 `avatar-axo.webp`/`about-axo.webp` 替换模板头像/关于图。
 - 保留：`public/assets/music/`（0.93MB）——`src/config/musicConfig.ts` 的 local 歌单仍在引用，虽然当前 `mode: "meting"` 未启用本地播放，但删掉会造成配置悬空引用，故保留（详见 [`ASSETS-GUIDE.md`](./ASSETS-GUIDE.md)）。
 - 新增图片前请先读 [`ASSETS-GUIDE.md`](./ASSETS-GUIDE.md)：背景图 WebP、桌面 1920 宽 ≤200KB、移动 1080 宽 ≤100KB。
 - 每次构建后 `pnpm build` 末尾自动跑 `scripts/check-size.mjs`，出现 `WARNING` 时先压缩大图再上传。
@@ -484,17 +488,20 @@ openssl s_client -connect axo.dpdns.org:443 -servername axo.dpdns.org < NUL | op
 
 ## 7. 模板自带的部署配置（Vercel / Cloudflare / GitHub Actions）
 
-本项目的部署目标是**手动上传到宝塔虚拟主机**。模板自带的平台配置**保留不删**，但**不使用**：
+本项目当前部署目标是 **GitHub Pages**（§0：`main` → Actions → `gh-pages`），宝塔手动上传作为备用（§1～§10）。模板自带的平台配置**保留不删**，但按以下方式处理：
 
 | 文件/目录 | 模板用途 | 本项目处理 |
 | --- | --- | --- |
-| `vercel.json` | Vercel 部署配置（构建命令、输出目录、缓存头） | **保留，不生效**。不执行 `vercel` 部署；其缓存/安全头语义已在 `deploy/nginx.conf` 中等价实现 |
+| `.github/workflows/pages.yml` | **本项目新增**：push `main` / 手动触发 → `pnpm install` + `pnpm build` → `peaceiris/actions-gh-pages` 发布 `dist/` 到 `gh-pages`（自动 `.nojekyll`） | **启用，是当前唯一自动发布通道**（见 §0.4）；构建时带 `GITHUB_TOKEN` 避免 GitHub 卡片数据限流 |
+| `.github/workflows/build.yml` | push/PR 构建 + `astro check` | 保留（CI 检查，不发布） |
+| `.github/workflows/biome.yml` | Biome 代码质量检查 | 保留（CI 检查，不发布） |
+| `vercel.json` | Vercel 部署配置（构建命令、输出目录、缓存头） | **保留，不生效**。不执行 `vercel` 部署；其缓存/安全头语义若走宝塔备用方案，已在 `deploy/nginx.conf` 中等价实现 |
 | `wrangler.jsonc` | Cloudflare Workers/Pages 静态资源配置 | **保留，不生效**。不要设置 `CF_WORKERS` 环境变量（见下方注意） |
-| `.github/workflows/` | 标准 GitHub Actions 目录：`build.yml`（push/PR 构建 + `astro check`）、`biome.yml`（代码质量）、`deploy.yml`（**仅手动 `workflow_dispatch`**：构建并上传 `dist` artifact，不自动部署） | **保留并启用**。Actions 只用于 CI 和"手动出构建包"；实际部署仍按本文第 3、6、8 节手动上传。`deploy.yml` 不含 GitHub Pages / Vercel / Cloudflare 部署步骤 |
 | `.github/dependabot.yml`、`ISSUE_TEMPLATE/` 等 | 仓库维护 | 无部署影响，保留 |
 | `astro.config.mjs` 的 `@astrojs/cloudflare` 适配器 | 仅当 `process.env.CF_WORKERS` 存在时启用 | 构建/本机不要设置 `CF_WORKERS`，保持 `output: 'static'` 产物结构（`dist/` 根目录直接是站点） |
 
-> GitHub Actions 的可选用法：在仓库 Actions 页面手动运行 **“Build dist artifact (manual)”**，构建完成后下载 `dist` artifact，解压后按第 3 节上传即可——与本地 `pnpm build` 产物等价，但**不会**自动推到任何平台。
+> 模板原有的「手动构建 + 上传 `dist` artifact」工作流（`deploy.yml`）已删除：自动发布统一走 `pages.yml`；需要人工出包时本地 `pnpm build` 即可。
+> 备用手动发布：`deploy/pages-deploy.ps1`（本地构建后直接推 `gh-pages`，不依赖 Actions）。
 
 > ⚠️ 若误设 `CF_WORKERS=1` 再构建，产物会变成 Cloudflare 适配器结构（静态资源在 `dist/client/` 等），**不能**直接上传到虚拟主机站点根目录。
 > 部署前确认：`astro.config.mjs` 里 `output: 'static'`、`adapter` 为 `undefined`。
@@ -651,7 +658,8 @@ Get-ChildItem dist | ForEach-Object {
 
 # Pagefind 索引页数（看构建日志或 pagefind-entry.json）
 Get-Content dist/pagefind/pagefind-entry.json
-# 2026-10-24 09:12 最终构建：{"version":"1.5.2","languages":{"zh-cn":{"hash":"zh-cn_37692eca73afd",...,"page_count":29}},...}
+# 形如：{"version":"1.5.2","languages":{"zh-cn":{"hash":"zh-cn_<hash>",...,"page_count":<N>}},...}
+# 注：2026-10 内容重建后页面数会变化，以最新构建输出为准。
 ```
 
-**最终构建复现结果（2026-10-24 09:12，Lead）**：`files=309 totalMB=23.31`、`HTML=50`、`sitemap URL=40`、`pagefind page_count=29`、`pnpm size` 预算 46.6% / 无 WARNING。
+**最新复现结果**：内容重建（演示内容清空）后，`dist` 文件数 / 总体积 / HTML 页数 / sitemap 数 / Pagefind 索引页数**均以最新一次 `pnpm build` 的 `pnpm size` 与构建日志为准**；历史参考（清空前）：`files=309 totalMB=23.31 HTML=50 sitemap=40 pagefind=29`。

@@ -142,8 +142,10 @@ try {
 		Write-Host "远端暂没有 $Branch 分支，本次为首个源码提交" -ForegroundColor darkgray
 	}
 
-	# 清理工作区（保留 .git），只留白名单内容
-	Get-ChildItem $StagingDir -Force | Where-Object { $_.Name -ne ".git" } |
+	# 清理工作区（保留 .git 与远端已有的 .github/，避免把远端工作流/配置误删）
+	# 增量语义：白名单里没有的东西不主动删远端已有的（尤其 .github/**）
+	Get-ChildItem $StagingDir -Force |
+		Where-Object { $_.Name -ne ".git" -and $_.Name -ne ".github" } |
 		ForEach-Object { Remove-Item -LiteralPath $_.FullName -Recurse -Force }
 
 	# ------------------------------------------------------------ 2) 复制白名单
@@ -166,11 +168,11 @@ try {
 		ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination $publicDst -Recurse -Force }
 	if (-not $IncludePio) { Write-Host "已跳过 public/pio（看板娘都关闭；需要时加 -IncludePio）" -ForegroundColor DarkGray }
 
-	# .github/workflows：只放 Pages 发布工作流
+	# .github/workflows：只覆盖 Pages 发布工作流（远端 .github/ 下其它文件保持原样，不会被删）
 	# 注意：classic PAT 必须有 `workflow` scope 才能推送 .github/workflows/*，
 	# 否则 GitHub 会拒绝推送（refusing to allow a Personal Access Token ... without `workflow` scope）。
 	if ($SkipWorkflowFiles) {
-		Write-Host "已跳过 .github/workflows（-SkipWorkflowFiles）" -ForegroundColor Yellow
+		Write-Host "已跳过 .github/workflows：保留远端现有工作流不动（token 无 workflow scope 时不会误删）" -ForegroundColor Yellow
 	} else {
 		foreach ($wf in $WorkflowFiles) {
 			$dstFile = Join-Path $StagingDir $wf
