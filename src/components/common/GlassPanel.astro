@@ -1,0 +1,33 @@
+---
+/**
+ * 液态玻璃面板（F2）
+ * 用于导航下拉、悬浮面板、设置区域等小面积表面。
+ * 高光 = 1px 内描边 + 顶部柔光（见 styles/glass.css），不使用斜向高光光条。
+ */
+interface Props {
+	class?: string;
+	/** 渲染标签，默认 div */
+	as?: "div" | "section" | "aside" | "nav";
+	/** 是否带默认内边距 */
+	padded?: boolean;
+	/** 语义角色（下拉面板传 none，容器传 group / region） */
+	role?: "none" | "presentation" | "group" | "region" | "navigation";
+	id?: string;
+}
+
+const {
+	class: className,
+	as: Tag = "div",
+	padded = true,
+	role,
+	id,
+}: Props = Astro.props;
+---
+
+<Tag
+	class:list={["glass-surface", padded && "glass-panel", className]}
+	role={role}
+	id={id}
+>
+	<slot />
+</Tag>

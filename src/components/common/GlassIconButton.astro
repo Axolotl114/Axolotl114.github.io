@@ -1,0 +1,51 @@
+---
+/**
+ * 液态玻璃图标按钮（F2）
+ * 导航栏等需要保留 id / aria 控制的图标按钮使用；玻璃材质由 glass.css 统一定义。
+ */
+interface Props {
+	id?: string;
+	/** 无可见文字时必须提供可读名称 */
+	ariaLabel: string;
+	ariaControls?: string;
+	ariaExpanded?: boolean | "false" | "true";
+	ariaHaspopup?: boolean | "false" | "true" | "menu" | "dialog" | "listbox";
+	name?: string;
+	class?: string;
+	/** 更安静的薄玻璃（导航栏默认） */
+	quiet?: boolean;
+	[key: string]: unknown;
+}
+
+const {
+	id,
+	ariaLabel,
+	ariaControls,
+	ariaExpanded,
+	ariaHaspopup,
+	name,
+	class: className,
+	quiet = true,
+	...rest
+} = Astro.props;
+---
+
+<button
+	id={id}
+	type="button"
+	name={name}
+	aria-label={ariaLabel}
+	aria-controls={ariaControls}
+	aria-expanded={ariaExpanded}
+	aria-haspopup={ariaHaspopup}
+	class:list={[
+		"glass-surface",
+		"glass-icon-button",
+		"flex items-center justify-center",
+		quiet && "glass-button--quiet",
+		className,
+	]}
+	{...rest}
+>
+	<slot />
+</button>

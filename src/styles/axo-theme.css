@@ -1,0 +1,524 @@
+/* =============================================================================
+ * Axo · 青のまどろみ — 主题皮肤（F1 背景系统 + 字色基调）
+ * -----------------------------------------------------------------------------
+ * 只做皮肤与交互升级，不改变 Firefly 的布局骨架：
+ *   - 背景层：复用 backgroundWallpaper 的 4 种壁纸模式，默认 fullscreen / classic
+ *   - 语义变量：--blog-bg-image / size / blur / opacity / position / overlay / saturate
+ *   - 氛围层：呼吸（纯 CSS）、桌面端指针视差（rAF 只写 transform 变量）、
+ *             柔光、颗粒、可读性遮罩；移动端与 prefers-reduced-motion 全部降级
+ *
+ * 背景来源约定：
+ *   - 默认（desktop / mobile 预设）继续用 WallpaperSection 的 <img>，保留 LCP 与 LQIP
+ *   - custom / solid 预设（以及跨设备选图时）改用 #blog-bg-layer，由 CSS 变量绘制
+ * ========================================================================== */
+
+/* ---------------------------------------------------------------------------
+ * 1. 色彩 / 字体 token
+ * ------------------------------------------------------------------------- */
+:root {
+	--axo-base: #bdd8e3;
+	--axo-ink: #15374c;
+	--axo-ink-soft: rgb(21 55 76 / 0.7);
+	--axo-ink-faint: rgb(21 55 76 / 0.48);
+	--axo-warm: #f6efe4;
+	--axo-blue: #8fc7e8;
+	--axo-pink: #e6b8c4;
+	--axo-paper: #fbf9f4;
+
+	--font-title:
+		"Yu Mincho", "YuMincho", "Hiragino Mincho ProN", "Songti SC",
+		"Noto Serif SC", "Noto Serif JP", Georgia, "Times New Roman", serif;
+	--font-body:
+		"PingFang SC", "Hiragino Sans GB", "Microsoft YaHei UI", "Segoe UI",
+		system-ui, -apple-system, sans-serif;
+	--font-navbar-title: var(--font-title);
+
+	/* 覆盖 Firefly 的 oklch 主题底色：高调清透的浅蓝晨光 */
+	--page-bg: #e3eef2;
+	--card-bg: var(--axo-paper);
+	--deep-text: var(--axo-ink);
+	--line-divider: rgb(21 55 76 / 0.1);
+	--line-color: rgb(21 55 76 / 0.12);
+	--selection-bg: rgb(143 199 232 / 0.35);
+	--radius-large: 0.9rem;
+}
+
+:root.dark {
+	--axo-ink: #e8f1f4;
+	--axo-ink-soft: rgb(232 241 244 / 0.74);
+	--axo-ink-faint: rgb(232 241 244 / 0.5);
+	--axo-paper: #172630;
+	--page-bg: #101c24;
+	--card-bg: #172630;
+	--deep-text: #e8f1f4;
+	--line-divider: rgb(232 241 244 / 0.12);
+	--line-color: rgb(232 241 244 / 0.14);
+	--selection-bg: rgb(143 199 232 / 0.28);
+}
+
+body {
+	background-color: var(--page-bg);
+	/* 轻微纸张噪点：与底色 overlay 混合，静态平铺，无动画开销 */
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23p)' opacity='0.22'/%3E%3C/svg%3E");
+	background-size: 180px 180px;
+	background-repeat: repeat;
+	background-blend-mode: overlay;
+}
+
+html {
+	font-family: var(--font-body);
+}
+
+h1,
+h2,
+h3,
+h4,
+.banner-title,
+.banner-page-title,
+.banner-post-title,
+.post-card-title,
+.widget-title {
+	font-family: var(--font-title);
+}
+
+.widget-title {
+	letter-spacing: 0.03em;
+}
+
+::selection {
+	background-color: var(--selection-bg);
+}
+
+/* 顶栏标题使用衬线，贴近「青のまどろみ」的字形气质 */
+#navbar .navbar-logo + *,
+#navbar a .text-md {
+	letter-spacing: 0.04em;
+}
+
+/* ---------------------------------------------------------------------------
+ * 2. 背景语义变量
+ * ------------------------------------------------------------------------- */
+:root {
+	--blog-bg-image: url("/images/axo-bg-desktop.webp");
+	--blog-bg-image-mobile: url("/images/axo-bg-mobile.webp");
+	--blog-bg-size: cover;
+	--blog-bg-position: 50% 42%;
+	--blog-bg-blur: 0px;
+	--blog-bg-opacity: 1;
+	--blog-bg-saturate: 1.02;
+	--blog-bg-scale: 1.05;
+	--blog-bg-color: #bdd8e3;
+	/* 可读性遮罩：亮色偏暖光 + 底部压暗，暗色整体加深 */
+	--blog-bg-overlay: linear-gradient(
+		180deg,
+		rgb(246 239 228 / 0.12) 0%,
+		rgb(189 216 227 / 0) 36%,
+		rgb(21 55 76 / 0.12) 100%
+	);
+	--blog-grain-opacity: 0.055;
+	--blog-light-opacity: 0.5;
+}
+
+:root.dark {
+	--blog-bg-color: #0f1b23;
+	--blog-bg-overlay: linear-gradient(
+		180deg,
+		rgb(6 20 30 / 0.34) 0%,
+		rgb(6 20 30 / 0.06) 42%,
+		rgb(3 12 20 / 0.48) 100%
+	);
+	--blog-grain-opacity: 0.045;
+	--blog-light-opacity: 0.26;
+}
+
+/* 移动端默认换成竖版裁切更友好的移动图；焦点略偏右，让角色进入画面中心 */
+@media (max-width: 1023px) {
+	:root {
+		--blog-bg-image: var(--blog-bg-image-mobile);
+		--blog-bg-position: 64% 42%;
+	}
+}
+
+/* ---------------------------------------------------------------------------
+ * 3. 壁纸 <img>：把 --blog-bg-* 接到 Firefly 既有的全屏/横幅图片规则上
+ *    classic 布局原有 filter:none / transform:scale 的 !important 规则，
+ *    所以这里用同等（或更高）特异性的选择器 + 同级 !important 覆盖。
+ * ------------------------------------------------------------------------- */
+html[data-wallpaper-mode="fullscreen"] #wallpaper-wrapper img,
+html[data-wallpaper-mode="fullscreen"][data-fullscreen-layout="classic"]
+	#wallpaper-wrapper
+	img,
+html[data-wallpaper-mode="banner"] #wallpaper-wrapper img {
+	object-fit: cover !important;
+	object-position: var(--blog-bg-position, 50% 42%) !important;
+	filter: blur(calc(var(--fullscreen-blur, 0px) + var(--blog-bg-blur, 0px)))
+		saturate(var(--blog-bg-saturate, 1.02)) !important;
+}
+
+/* 背景透明度只作用于图片容器，避免把首页标题一起淡出 */
+html[data-wallpaper-mode="fullscreen"] #wallpaper-wrapper #banner-images-container,
+html[data-wallpaper-mode="banner"] #wallpaper-wrapper #banner-images-container {
+	opacity: var(--blog-bg-opacity, 1);
+	transition: opacity 0.45s var(--ease-standard, ease);
+}
+
+/* ---------------------------------------------------------------------------
+ * 4. 氛围层：呼吸 / 视差容器
+ *    - JS 只写 --blog-parallax-x/y、--blog-light-tx/ty（transform 变量，走合成器）
+ *    - 呼吸用独立的 scale / translate 属性，与 transform 互不覆盖
+ * ------------------------------------------------------------------------- */
+#wallpaper-wrapper #banner-images-container {
+	transform: translate3d(var(--blog-parallax-x, 0px), var(--blog-parallax-y, 0px), 0);
+	transform-origin: 50% 46%;
+	scale: 1.02;
+	animation: axo-bg-breathe 18s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+	will-change: transform;
+}
+
+@keyframes axo-bg-breathe {
+	0%,
+	100% {
+		scale: 1.02;
+		translate: 0 0;
+	}
+	46% {
+		scale: 1.029;
+		translate: 0 -3px;
+	}
+	60% {
+		scale: 1.026;
+		translate: 0 -2px;
+	}
+}
+
+/* 可读性遮罩：位于图片之上、标题/正文之下 */
+#blog-bg-scrim {
+	position: absolute;
+	inset: 0;
+	z-index: 7;
+	pointer-events: none;
+	background: var(--blog-bg-overlay);
+}
+
+/* 柔光层：两个超大径向光斑跟随指针（桌面端），screen + multiply 建立光的方向感 */
+#blog-bg-light,
+#blog-bg-shadow {
+	position: absolute;
+	inset: 0;
+	z-index: 8;
+	overflow: hidden;
+	pointer-events: none;
+	contain: strict;
+}
+
+#blog-bg-light {
+	opacity: var(--blog-light-opacity);
+	mix-blend-mode: screen;
+}
+
+#blog-bg-shadow {
+	opacity: 0.42;
+	mix-blend-mode: multiply;
+}
+
+#blog-bg-light .blog-bg-orb,
+#blog-bg-shadow .blog-bg-orb {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: 120vmax;
+	height: 120vmax;
+	margin: -60vmax 0 0 -60vmax;
+	border-radius: 50%;
+	transform: translate3d(var(--blog-light-tx, 0px), var(--blog-light-ty, 0px), 0);
+	will-change: transform;
+}
+
+#blog-bg-light .blog-bg-orb {
+	background: radial-gradient(
+		circle at center,
+		rgb(248 254 255 / 0.42) 0%,
+		rgb(190 239 255 / 0.18) 32%,
+		rgb(110 195 255 / 0) 66%
+	);
+}
+
+#blog-bg-shadow .blog-bg-orb {
+	background: radial-gradient(
+		circle at center,
+		rgb(16 42 62 / 0.16) 0%,
+		rgb(16 42 62 / 0.05) 46%,
+		transparent 72%
+	);
+}
+
+/* 颗粒：静态 SVG 噪点，不参与动画 */
+#blog-bg-grain {
+	position: absolute;
+	inset: 0;
+	z-index: 9;
+	pointer-events: none;
+	opacity: var(--blog-grain-opacity);
+	mix-blend-mode: overlay;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.88' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+	background-size: 160px 160px;
+}
+
+/* ---------------------------------------------------------------------------
+ * 5. CSS 绘制的背景层（custom / solid 预设）
+ * ------------------------------------------------------------------------- */
+#blog-bg-layer {
+	display: none;
+	position: absolute;
+	inset: -2%;
+	z-index: 4;
+	background-color: var(--blog-bg-color, transparent);
+	background-image: var(--blog-bg-image, none);
+	background-size: var(--blog-bg-size, cover);
+	background-position: var(--blog-bg-position, 50% 42%);
+	background-repeat: no-repeat;
+	filter: blur(var(--blog-bg-blur, 0px)) saturate(var(--blog-bg-saturate, 1.02));
+	transform: translate3d(var(--blog-parallax-x, 0px), var(--blog-parallax-y, 0px), 0)
+		scale(1.04);
+	transform-origin: 50% 46%;
+	opacity: var(--blog-bg-opacity, 1);
+	transition: opacity 0.45s var(--ease-standard, ease);
+}
+
+/* 纯色 / 自定义：完全交给 CSS 图层 */
+html[data-blog-bg-preset="custom"] #blog-bg-layer,
+html[data-blog-bg-preset="solid"] #blog-bg-layer {
+	display: block;
+}
+
+html[data-blog-bg-preset="custom"] #wallpaper-wrapper #banner-images-container,
+html[data-blog-bg-preset="solid"] #wallpaper-wrapper #banner-images-container {
+	display: none;
+}
+
+/* 移动预设：桌面端用图层显示移动图；移动端继续用 <img> */
+html[data-blog-bg-preset="mobile"] #blog-bg-layer {
+	display: block;
+}
+
+html[data-blog-bg-preset="mobile"] #wallpaper-wrapper #banner-images-container {
+	display: none;
+}
+
+/* 桌面预设：移动端用图层显示桌面图；桌面端继续用 <img> */
+@media (max-width: 1023px) {
+	html[data-blog-bg-preset="mobile"] #blog-bg-layer {
+		display: none;
+	}
+
+	html[data-blog-bg-preset="mobile"] #wallpaper-wrapper #banner-images-container {
+		display: block;
+	}
+
+	html[data-blog-bg-preset="desktop"] #blog-bg-layer {
+		display: block;
+	}
+
+	html[data-blog-bg-preset="desktop"] #wallpaper-wrapper #banner-images-container {
+		display: none;
+	}
+}
+
+/* ---------------------------------------------------------------------------
+ * 6. 首页首屏排版：左对齐的非对称留白（不做居中英雄区）
+ * ------------------------------------------------------------------------- */
+html[data-wallpaper-mode="fullscreen"] body.is-home .banner-home-text-overlay {
+	align-items: flex-end !important;
+	justify-content: flex-start !important;
+	padding: 0 clamp(1.25rem, 5vw, 4rem) clamp(3rem, 13vh, 8.5rem)
+		clamp(1.25rem, 7vw, 6.5rem) !important;
+	text-align: left !important;
+}
+
+html[data-wallpaper-mode="fullscreen"] body.is-home .banner-home-text-overlay > div {
+	width: auto !important;
+	max-width: min(44rem, 84vw) !important;
+	text-align: left !important;
+	animation: axo-hero-in 1.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+html[data-wallpaper-mode="fullscreen"] body.is-home .banner-title {
+	font-family: var(--font-title) !important;
+	font-size: min(var(--banner-title-size, 3rem), 5.4vw) !important;
+	font-weight: 400 !important;
+	line-height: 1.24 !important;
+	letter-spacing: 0.13em !important;
+	color: var(--axo-ink) !important;
+	text-shadow:
+		0 2px 26px rgb(255 255 255 / 0.62),
+		0 1px 1px rgb(255 255 255 / 0.32) !important;
+	margin-bottom: 1.2rem !important;
+	animation: none !important;
+}
+
+html[data-wallpaper-mode="fullscreen"] body.is-home .banner-title::after {
+	content: "";
+	display: block;
+	width: clamp(2.4rem, 4vw, 3.9rem);
+	height: 1px;
+	margin-top: 1.15rem;
+	background: linear-gradient(
+		90deg,
+		rgb(21 55 76 / 0.55),
+		rgb(21 55 76 / 0)
+	);
+}
+
+html[data-wallpaper-mode="fullscreen"] body.is-home .banner-subtitle {
+	font-family: var(--font-body) !important;
+	font-size: clamp(0.78rem, 1vw, 0.98rem) !important;
+	line-height: 1.6 !important;
+	letter-spacing: 0.18em !important;
+	color: var(--axo-ink-soft) !important;
+	text-shadow: 0 1px 10px rgb(255 255 255 / 0.45) !important;
+	animation: none !important;
+}
+
+/* 暗色主题：壁纸本身仍是亮图，改成暖白字 + 深色光晕 */
+:root.dark
+	html[data-wallpaper-mode="fullscreen"]
+	body.is-home
+	.banner-title {
+	color: var(--axo-warm) !important;
+	text-shadow:
+		0 2px 26px rgb(5 20 32 / 0.55),
+		0 1px 1px rgb(5 20 32 / 0.3) !important;
+}
+
+:root.dark
+	html[data-wallpaper-mode="fullscreen"]
+	body.is-home
+	.banner-title::after {
+	background: linear-gradient(
+		90deg,
+		rgb(246 239 228 / 0.6),
+		rgb(246 239 228 / 0)
+	);
+}
+
+:root.dark
+	html[data-wallpaper-mode="fullscreen"]
+	body.is-home
+	.banner-subtitle {
+	color: rgb(246 239 228 / 0.72) !important;
+	text-shadow: 0 1px 10px rgb(5 20 32 / 0.5) !important;
+}
+
+@keyframes axo-hero-in {
+	from {
+		opacity: 0;
+		transform: translateY(12px);
+		filter: blur(4px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+		filter: blur(0);
+	}
+}
+
+/* 移动端：首屏标题保持在左下的可读尺度，不跟随桌面 vw 上限缩得过小 */
+@media (max-width: 767px) {
+	html[data-wallpaper-mode="fullscreen"] body.is-home .banner-home-text-overlay {
+		padding: 0 1.25rem clamp(3.5rem, 16vh, 6rem) 1.5rem !important;
+	}
+
+	html[data-wallpaper-mode="fullscreen"] body.is-home .banner-title {
+		font-size: min(var(--banner-title-size, 3rem), 9vw) !important;
+		letter-spacing: 0.1em !important;
+	}
+
+	html[data-wallpaper-mode="fullscreen"] body.is-home .banner-subtitle {
+		font-size: 0.82rem !important;
+		letter-spacing: 0.14em !important;
+	}
+}
+
+/* 壁纸底部的渐隐过渡更柔和，接住内容区的纸色 */
+#wallpaper-wrapper #wallpaper-gradient {
+	background: linear-gradient(
+		to bottom,
+		transparent,
+		color-mix(in srgb, var(--page-bg) 88%, transparent)
+	) !important;
+}
+
+/* 卡片：纸面色 + 细描边 + 极浅投影，不做统一大圆角堆叠 */
+.card-base,
+.card-base-transparent {
+	box-shadow:
+		0 1px 0 rgb(21 55 76 / 0.03),
+		0 18px 40px -32px rgb(21 55 76 / 0.3);
+}
+
+:root.dark .card-base,
+:root.dark .card-base-transparent {
+	box-shadow:
+		0 1px 0 rgb(255 255 255 / 0.03),
+		0 18px 40px -30px rgb(0 0 0 / 0.6);
+}
+
+/* 文章卡片进入按钮：玻璃只覆盖小面积操作区（几何由 PostCard 决定） */
+.post-card-enter-btn.glass-surface {
+	padding: 0;
+	border-radius: 0.8rem;
+	background-color: color-mix(in srgb, var(--glass-bg) 62%, transparent);
+	color: var(--primary);
+}
+
+/* 元信息 / 标签小字：略提字距，替代模板默认的紧凑感 */
+.post-meta,
+.stats {
+	letter-spacing: 0.015em;
+}
+
+/* ---------------------------------------------------------------------------
+ * 7. 降级策略
+ *    - 移动端：关闭呼吸/视差/柔光，只留静态颗粒与遮罩（滚动更顺）
+ *    - reduced-motion：全部动画停止，背景保持清晰可读
+ * ------------------------------------------------------------------------- */
+@media (max-width: 1023px) {
+	#wallpaper-wrapper #banner-images-container {
+		animation: none;
+		scale: 1.015;
+		transform: none;
+		will-change: auto;
+	}
+
+	#blog-bg-light {
+		display: none;
+	}
+
+	#blog-bg-shadow {
+		opacity: 0.28;
+	}
+}
+
+@media (hover: none) {
+	#blog-bg-light {
+		display: none;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	#wallpaper-wrapper #banner-images-container {
+		animation: none !important;
+		transform: none !important;
+		scale: 1.02 !important;
+		will-change: auto;
+	}
+
+	#blog-bg-light,
+	#blog-bg-shadow {
+		display: none;
+	}
+
+	html[data-wallpaper-mode="fullscreen"] body.is-home .banner-home-text-overlay > div {
+		animation: none;
+	}
+}

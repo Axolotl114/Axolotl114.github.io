@@ -1,0 +1,154 @@
+---
+/**
+ * 背景氛围层（F1）
+ * 可读性遮罩 / 柔光 / 冷影 / 颗粒 + 桌面端指针视差。
+ * 全部由 CSS 变量驱动，脚本只写 transform 变量（合成器路径），
+ * 移动端、触屏与 prefers-reduced-motion 下不启动 rAF。
+ * 渲染在壁纸容器内、标题与正文之前（z-index 7–9）。
+ */
+---
+
+<div id="blog-bg-scrim" aria-hidden="true"></div>
+<div id="blog-bg-light" aria-hidden="true">
+	<span class="blog-bg-orb"></span>
+</div>
+<div id="blog-bg-shadow" aria-hidden="true">
+	<span class="blog-bg-orb"></span>
+</div>
+<div id="blog-bg-grain" aria-hidden="true"></div>
+
+<script is:inline data-swup-ignore-script>
+	(function initAxoAtmosphere() {
+		if (window.__axoAtmosphereReady) return;
+		window.__axoAtmosphereReady = true;
+
+		var reduceQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+		var coarseQuery = window.matchMedia("(hover: none), (pointer: coarse)");
+
+		var PARALLAX_X = 6.5;
+		var PARALLAX_Y = 4.5;
+		var LIGHT_X = 34;
+		var LIGHT_Y = 24;
+		var ACTIVE_EPSILON = 0.002;
+
+		function canAnimate() {
+			return (
+				!reduceQuery.matches &&
+				!coarseQuery.matches &&
+				window.innerWidth >= 1024
+			);
+		}
+
+		var wrapper = null;
+		var frame = 0;
+		var state = { x: 0, y: 0, lx: 0, ly: 0 };
+		var target = { x: 0, y: 0, lx: 0, ly: 0 };
+
+		function getWrapper() {
+			if (!wrapper) wrapper = document.getElementById("wallpaper-wrapper");
+			return wrapper;
+		}
+
+		function write() {
+			var el = getWrapper();
+			if (!el) return;
+			el.style.setProperty("--blog-parallax-x", (state.x * PARALLAX_X).toFixed(2) + "px");
+			el.style.setProperty("--blog-parallax-y", (state.y * PARALLAX_Y).toFixed(2) + "px");
+			el.style.setProperty("--blog-light-tx", (state.lx * LIGHT_X).toFixed(2) + "px");
+			el.style.setProperty("--blog-light-ty", (state.ly * LIGHT_Y).toFixed(2) + "px");
+		}
+
+		function settle() {
+			if (!canAnimate()) {
+				frame = 0;
+				var el = getWrapper();
+				if (el) {
+					el.style.removeProperty("--blog-parallax-x");
+					el.style.removeProperty("--blog-parallax-y");
+					el.style.removeProperty("--blog-light-tx");
+					el.style.removeProperty("--blog-light-ty");
+				}
+				return true;
+			}
+			var dx = target.x - state.x;
+			var dy = target.y - state.y;
+			var dlx = target.lx - state.lx;
+			var dly = target.ly - state.ly;
+			var moving =
+				Math.abs(dx) + Math.abs(dy) + Math.abs(dlx) + Math.abs(dly) >
+				ACTIVE_EPSILON;
+			var ease = moving ? 0.075 : 0.12;
+			state.x += dx * ease;
+			state.y += dy * ease;
+			state.lx += dlx * ease;
+			state.ly += dly * ease;
+			write();
+			if (!moving) {
+				state.x = target.x;
+				state.y = target.y;
+				state.lx = target.lx;
+				state.ly = target.ly;
+				write();
+				frame = 0;
+				return true;
+			}
+			return false;
+		}
+
+		function tick() {
+			if (frame) return;
+			frame = requestAnimationFrame(function loop() {
+				if (settle()) {
+					frame = 0;
+					return;
+				}
+				frame = requestAnimationFrame(loop);
+			});
+		}
+
+		function onPointerMove(event) {
+			if (!canAnimate()) return;
+			var width = window.innerWidth || 1;
+			var height = window.innerHeight || 1;
+			// -1..1，中心为 0
+			target.x = Math.max(-1, Math.min(1, (event.clientX / width) * 2 - 1));
+			target.y = Math.max(-1, Math.min(1, (event.clientY / height) * 2 - 1));
+			// 光影比视差更慢、幅度更大，制造方向感
+			target.lx = target.x * 0.85;
+			target.ly = target.y * 0.7;
+			tick();
+		}
+
+		function onPointerLeave() {
+			target.x = 0;
+			target.y = 0;
+			target.lx = 0;
+			target.ly = 0;
+			if (canAnimate()) tick();
+		}
+
+		window.addEventListener("pointermove", onPointerMove, { passive: true });
+		window.addEventListener("pointerleave", onPointerLeave, { passive: true });
+		window.addEventListener("blur", onPointerLeave);
+
+		document.addEventListener("visibilitychange", function () {
+			if (document.hidden) {
+				onPointerLeave();
+			}
+		});
+
+		// 视口变化时重新判断设备能力（例如旋转屏幕 / 调整窗口）
+		if (typeof window.matchMedia === "function") {
+			var mediaChange = function () {
+				if (!canAnimate()) onPointerLeave();
+			};
+			if (reduceQuery.addEventListener) {
+				reduceQuery.addEventListener("change", mediaChange);
+				coarseQuery.addEventListener("change", mediaChange);
+			} else if (reduceQuery.addListener) {
+				reduceQuery.addListener(mediaChange);
+				coarseQuery.addListener(mediaChange);
+			}
+		}
+	})();
+</script>

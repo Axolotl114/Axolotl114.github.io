@@ -1,0 +1,106 @@
+---
+import { commentConfig } from "@/config";
+
+if (!commentConfig?.giscus) {
+	throw new Error("Giscus comments are not configured");
+}
+
+const giscus = commentConfig.giscus;
+
+// 传给浏览器端脚本的配置（全部来自 commentConfig.ts，不硬编码）
+const giscusConfig = {
+	repo: giscus.repo,
+	repoId: giscus.repoId,
+	category: giscus.category,
+	categoryId: giscus.categoryId,
+	mapping: giscus.mapping,
+	strict: giscus.strict,
+	reactionsEnabled: giscus.reactionsEnabled,
+	emitMetadata: giscus.emitMetadata,
+	inputPosition: giscus.inputPosition,
+	lang: giscus.lang,
+	loading: giscus.loading,
+};
+---
+
+<!--
+  Giscus 官方加载方式：https://giscus.app/zh-CN
+  - 使用官方 client.js（由 giscus.app 提供），不再依赖 esm.sh 的 Web Component 构建；
+  - 全部参数来自 src/config/commentConfig.ts 的 giscus 段（部署前替换占位值）；
+  - 主题跟随站点亮暗：初始化时读取 <html class="dark">，之后监听 class 变化并通过
+    postMessage 通知 giscus iframe 切换主题（官方 setConfig API）；
+  - 纯前端 iframe，无服务端/数据库，静态托管可直接使用。
+-->
+<div id="giscus-container" class="giscus-container"></div>
+
+<script is:inline define:vars={{ giscusConfig }}>
+	const GISCUS_ORIGIN = "https://giscus.app";
+	const container = document.getElementById("giscus-container");
+
+	const isDarkMode = () => document.documentElement.classList.contains("dark");
+	const currentTheme = () => (isDarkMode() ? "dark" : "light");
+
+	// 用官方 client.js 动态插入：这样可以在插入前决定初始主题（跟随站点当前亮暗）
+	function mountGiscus() {
+		if (!container || container.querySelector("script[src]")) return;
+
+		// 支持 ?path=xxx 覆盖映射（动态页等特殊场景，保持与旧组件一致的行为）
+		const requestedPath = new URLSearchParams(window.location.search).get("path");
+
+		const script = document.createElement("script");
+		script.src = GISCUS_ORIGIN + "/client.js";
+		script.async = true;
+		script.crossOrigin = "anonymous";
+
+		const attributes = {
+			"data-repo": giscusConfig.repo,
+			"data-repo-id": giscusConfig.repoId,
+			"data-category": giscusConfig.category,
+			"data-category-id": giscusConfig.categoryId,
+			"data-mapping": requestedPath ? "specific" : giscusConfig.mapping,
+			"data-term": requestedPath,
+			"data-strict": giscusConfig.strict,
+			"data-reactions-enabled": giscusConfig.reactionsEnabled,
+			"data-emit-metadata": giscusConfig.emitMetadata,
+			"data-input-position": giscusConfig.inputPosition,
+			"data-theme": currentTheme(),
+			"data-lang": giscusConfig.lang,
+			"data-loading": giscusConfig.loading,
+		};
+
+		for (const [name, value] of Object.entries(attributes)) {
+			if (value !== undefined && value !== null && value !== "") {
+				script.setAttribute(name, String(value));
+			}
+		}
+
+		container.appendChild(script);
+	}
+
+	// 站点亮暗切换后，通知 giscus iframe 换主题
+	function updateGiscusTheme() {
+		const iframe = document.querySelector("iframe.giscus-frame");
+		if (!iframe || !iframe.contentWindow) return;
+		iframe.contentWindow.postMessage(
+			{ giscus: { setConfig: { theme: currentTheme() } } },
+			GISCUS_ORIGIN,
+		);
+	}
+
+	mountGiscus();
+
+	// iframe 是异步加载的：出现后再补一次主题同步
+	const containerObserver = new MutationObserver(() => updateGiscusTheme());
+	if (container) {
+		containerObserver.observe(container, { childList: true, subtree: true });
+	}
+	window.addEventListener("load", updateGiscusTheme);
+
+	// 监听站点主题切换（Layout 在 <html> 上切换 dark class）
+	if (window.__giscusThemeObserver) window.__giscusThemeObserver.disconnect();
+	window.__giscusThemeObserver = new MutationObserver(() => updateGiscusTheme());
+	window.__giscusThemeObserver.observe(document.documentElement, {
+		attributes: true,
+		attributeFilter: ["class"],
+	});
+</script>

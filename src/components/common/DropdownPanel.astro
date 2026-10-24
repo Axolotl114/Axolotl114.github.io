@@ -1,0 +1,18 @@
+---
+/**
+ * 公共下拉面板组件
+ * 用于壁纸切换、亮暗色切换、导航栏菜单等下拉面板。
+ * Axo：材质改用液态玻璃（GlassPanel），几何与交互类名继续由调用方传入。
+ */
+import GlassPanel from "./GlassPanel.astro";
+
+interface Props {
+	class?: string;
+}
+
+const { class: className } = Astro.props;
+---
+
+<GlassPanel class:list={["float-panel p-2", className]} role="none">
+	<slot />
+</GlassPanel>

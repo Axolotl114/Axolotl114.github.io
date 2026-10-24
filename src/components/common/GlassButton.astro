@@ -1,0 +1,62 @@
+---
+/**
+ * 液态玻璃按钮（F2）
+ * href 存在时渲染 <a>，否则渲染 <button>；尺寸/变体只控制几何与材质，不改行为。
+ */
+interface Props {
+	href?: string;
+	type?: "button" | "submit" | "reset";
+	ariaLabel?: string;
+	title?: string;
+	target?: string;
+	rel?: string;
+	class?: string;
+	/** surface：完整玻璃表面；quiet：导航栏里更安静的薄玻璃 */
+	variant?: "surface" | "quiet";
+	size?: "sm" | "md";
+	[key: string]: unknown;
+}
+
+const {
+	href,
+	type = "button",
+	ariaLabel,
+	title,
+	target,
+	rel,
+	class: className,
+	variant = "surface",
+	size = "md",
+	...rest
+} = Astro.props;
+
+const classes = [
+	"glass-surface",
+	"glass-button",
+	variant === "quiet" && "glass-button--quiet",
+	size === "sm" && "glass-button--sm",
+	className,
+]
+	.filter(Boolean)
+	.join(" ");
+---
+
+{
+	href ? (
+		<a
+			href={href}
+			aria-label={ariaLabel}
+			title={title}
+			target={target}
+			rel={rel}
+			class={classes}
+			{...rest}
+		>
+			<slot />
+		</a>
+	) : (
+		<button type={type} aria-label={ariaLabel} title={title} class={classes} {...rest}>
+			<slot />
+		</button>
+	)
+}

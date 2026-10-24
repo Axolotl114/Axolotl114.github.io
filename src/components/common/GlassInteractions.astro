@@ -1,0 +1,104 @@
+---
+/**
+ * 液态玻璃交互层（F2 v2）
+ * 仅做两件事，全部事件委托到 document，Swup 切页后无需重绑：
+ *   1. pointermove → 写 --glass-pointer-x/y（rAF 合并），驱动镜面高光跟随指针
+ *   2. pointerdown → 在点击点插入 .glass-ripple（520ms 动画后自动移除）
+ * 移动端（hover:none / pointer:coarse）与 prefers-reduced-motion 下不启动。
+ */
+---
+
+<script is:inline data-swup-ignore-script>
+	(function initAxoLiquidInteractions() {
+		if (window.__axoLiquidInteractions) return;
+		window.__axoLiquidInteractions = true;
+
+		var reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
+		var coarse = window.matchMedia("(hover: none), (pointer: coarse)");
+		var lastHover = null;
+		var raf = 0;
+		var pending = null;
+
+		function glassOf(node) {
+			if (!node || node.nodeType !== 1) return null;
+			return node.closest ? node.closest(".glass-surface") : null;
+		}
+
+		function writePending() {
+			raf = 0;
+			if (!pending) return;
+			var el = pending.el;
+			var x = pending.x;
+			var y = pending.y;
+			pending = null;
+			el.style.setProperty("--glass-pointer-x", x);
+			el.style.setProperty("--glass-pointer-y", y);
+		}
+
+		function clearHover(el) {
+			if (!el) return;
+			el.style.removeProperty("--glass-pointer-x");
+			el.style.removeProperty("--glass-pointer-y");
+		}
+
+		document.addEventListener(
+			"pointermove",
+			function (event) {
+				if (reduce.matches || coarse.matches) return;
+				var el = glassOf(event.target);
+				if (el !== lastHover) {
+					clearHover(lastHover);
+					lastHover = el;
+				}
+				if (!el) return;
+				var rect = el.getBoundingClientRect();
+				if (!rect.width || !rect.height) return;
+				pending = {
+					el: el,
+					x: (((event.clientX - rect.left) / rect.width) * 100).toFixed(
+						2,
+					) + "%",
+					y: (((event.clientY - rect.top) / rect.height) * 100).toFixed(
+						2,
+					) + "%",
+				};
+				if (!raf) raf = window.requestAnimationFrame(writePending);
+			},
+			{ passive: true },
+		);
+
+		document.addEventListener(
+			"pointerleave",
+			function () {
+				clearHover(lastHover);
+				lastHover = null;
+			},
+			{ passive: true },
+		);
+
+		document.addEventListener(
+			"pointerdown",
+			function (event) {
+				if (reduce.matches) return;
+				var el = glassOf(event.target);
+				if (!el) return;
+				var rect = el.getBoundingClientRect();
+				if (!rect.width || !rect.height) return;
+
+				var ripple = document.createElement("span");
+				ripple.className = "glass-ripple";
+				ripple.setAttribute("aria-hidden", "true");
+				ripple.style.left = (event.clientX - rect.left).toFixed(1) + "px";
+				ripple.style.top = (event.clientY - rect.top).toFixed(1) + "px";
+				el.appendChild(ripple);
+
+				var remove = function () {
+					if (ripple.parentNode) ripple.parentNode.removeChild(ripple);
+				};
+				ripple.addEventListener("animationend", remove, { once: true });
+				window.setTimeout(remove, 800);
+			},
+			{ passive: true },
+		);
+	})();
+</script>
